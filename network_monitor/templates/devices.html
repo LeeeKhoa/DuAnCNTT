@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card mt-4">
+  <div class="card-header">
+    <h3 class="card-title">Danh sách thiết bị trong mạng</h3>
+  </div>
+  <div class="card-body">
+    <table class="table table-bordered" id="devices-table">
+      <thead>
+        <tr>
+          <th>IP Address</th>
+          <th>MAC Address</th>
+          <th>State</th>
+          <th>CPU Usage (%)</th>
+          <th>RAM (Used/Total, MB)</th>
+          <th>Disk (Used/Total, MB)</th>
+          <th>Link Speed (Mbps)</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for device in devices %}
+        <tr>
+          <td>{{ device['ip_address'] }}</td>
+          <td>{{ device['mac_address'] }}</td>
+          <td>{{ device['state'] }}</td>
+          <td>{{ device['cpu_load_percent'] }}</td>
+          <td>{{ device['used_ram_mb'] }} / {{ device['total_ram_mb'] }}</td>
+          <td>{{ device['disk_used_mb'] }} / {{ device['disk_total_mb'] }}</td>
+          <td>{{ device['link_speed'] }}</td>
+          <td>{{ device['timestamp'] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  function updateDevices() {
+    fetch('/devices')
+      .then(response => response.text())
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newTbody = doc.querySelector('#devices-table tbody');
+        document.querySelector('#devices-table tbody').innerHTML = newTbody.innerHTML;
+      });
+  }
+  setInterval(updateDevices, 60000); // Cập nhật mỗi 60 giây
+  updateDevices();
+</script>
+{% endblock %}

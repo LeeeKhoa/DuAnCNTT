@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card mt-4">
+  <div class="card-header">
+    <h3 class="card-title">Tốc độ mạng</h3>
+  </div>
+  <div class="card-body">
+    <canvas id="speedChart" width="400" height="200"></canvas>
+    <table class="table table-bordered mt-4" id="stats-table">
+      <thead>
+        <tr>
+          <th>IP Address</th>
+          <th>In Speed (Mbps)</th>
+          <th>Out Speed (Mbps)</th>
+          <th>Link Speed (Mbps)</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in stats %}
+        <tr>
+          <td>{{ stat.ip_address }}</td>
+          <td>{{ stat.network_in_mbps }}</td>
+          <td>{{ stat.network_out_mbps }}</td>
+          <td>{{ stat.link_speed }}</td>
+          <td>{{ stat.timestamp }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Lấy dữ liệu từ Flask
+  const stats = {{ stats | tojson | safe }};
+  const labels = stats.map(stat => stat.timestamp);
+  const inSpeeds = stats.map(stat => stat.network_in_mbps);
+  const outSpeeds = stats.map(stat => stat.network_out_mbps);
+
+  // Vẽ biểu đồ bằng Chart.js
+  const ctx = document.getElementById('speedChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'In Speed (Mbps)',
+          data: inSpeeds,
+          borderColor: 'blue',
+          fill: false
+        },
+        {
+          label: 'Out Speed (Mbps)',
+          data: outSpeeds,
+          borderColor: 'red',
+          fill: false
+        }
+      ]
+    },
+    options: {
+      scales: {
+        x: { title: { display: true, text: 'Thời gian' } },
+        y: { title: { display: true, text: 'Tốc độ (Mbps)' } }
+      }
+    }
+  });
+
+  // Hàm cập nhật bảng tự động
+  function updateStats() {
+    fetch('/network_stats')
+      .then(response => response.text())
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newTbody = doc.querySelector('#stats-table tbody');
+        document.querySelector('#stats-table tbody').innerHTML = newTbody.innerHTML;
+      })
+      .catch(error => console.error('Error updating stats:', error));
+  }
+
+  // Cập nhật mỗi 60 giây
+  setInterval(updateStats, 60000);
+  updateStats();
+</script>
+{% endblock %}

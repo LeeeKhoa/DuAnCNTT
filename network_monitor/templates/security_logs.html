@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card mt-4">
+  <div class="card-header">
+    <h3 class="card-title">Security Logs</h3>
+  </div>
+  <div class="card-body">
+    <table class="table table-bordered" id="security-logs-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Log Type</th>
+          <th>Source</th>
+          <th>Event ID</th>
+          <th>Type</th>
+          <th>Category</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.timestamp }}</td>
+          <td>{{ log.log_type }}</td>
+          <td>{{ log.source }}</td>
+          <td>{{ log.event_id }}</td>
+          <td>{{ log.type }}</td>
+          <td>{{ log.category }}</td>
+          <td>{{ log.message }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  function updateSecurityLogs() {
+    if (!document.hidden) {
+      fetch('/security_logs')
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newTbody = doc.querySelector('#security-logs-table tbody');
+          document.querySelector('#security-logs-table tbody').innerHTML = newTbody.innerHTML;
+        })
+        .catch(error => console.error('Error updating security logs:', error));
+    }
+  }
+
+  // Cập nhật mỗi 5 giây
+  setInterval(updateSecurityLogs, 5000);
+  updateSecurityLogs();
+</script>
+{% endblock %}

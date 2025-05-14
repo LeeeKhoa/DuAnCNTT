@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card mt-4">
+  <div class="card-header bg-warning">
+    <h3 class="card-title">Danh sách thiết bị lạ</h3>
+  </div>
+  <div class="card-body">
+    <table class="table table-bordered" id="unauthorized-table">
+      <thead>
+        <tr>
+          <th>IP Address</th>
+          <th>MAC Address</th>
+          <th>Detected At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for device in unauthorized %}
+        <tr class="table-warning">
+          <td>{{ device['ip_address'] }}</td>
+          <td>{{ device['mac_address'] }}</td>
+          <td>{{ device['detected_at'] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  function updateUnauthorized() {
+    fetch('/unauthorized')
+      .then(response => response.text())
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newTbody = doc.querySelector('#unauthorized-table tbody');
+        document.querySelector('#unauthorized-table tbody').innerHTML = newTbody.innerHTML;
+      });
+  }
+  setInterval(updateUnauthorized, 60000);
+  updateUnauthorized();
+</script>
+{% endblock %}
