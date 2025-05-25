@@ -17,19 +17,25 @@
           <th>Disk (Used/Total, MB)</th>
           <th>Link Speed (Mbps)</th>
           <th>Timestamp</th>
+          <th>History</th>
         </tr>
       </thead>
       <tbody>
         {% for device in devices %}
-        <tr>
-          <td>{{ device['ip_address'] }}</td>
-          <td>{{ device['mac_address'] }}</td>
-          <td>{{ device['state'] }}</td>
-          <td>{{ device['cpu_load_percent'] }}</td>
-          <td>{{ device['used_ram_mb'] }} / {{ device['total_ram_mb'] }}</td>
-          <td>{{ device['disk_used_mb'] }} / {{ device['disk_total_mb'] }}</td>
-          <td>{{ device['link_speed'] }}</td>
-          <td>{{ device['timestamp'] }}</td>
+        <tr class="{% if device.is_online %}table-success{% else %}table-secondary{% endif %}">
+          <td>{{ device.ip_address }}</td>
+          <td>{{ device.mac_address }}</td>
+          <td>{{ 'Online' if device.is_online else 'Offline' }}</td>
+          <td>{{ device.cpu_load_percent }}</td>
+          <td>{{ device.used_ram_mb }} / {{ device.total_ram_mb }}</td>
+          <td>{{ device.disk_used_mb }} / {{ device.disk_total_mb }}</td>
+          <td>{{ device.link_speed }}</td>
+          <td>{{ device.timestamp }}</td>
+          <td>
+            <button class="btn btn-info btn-sm" onclick="showHistory('{{ device.ip_address }}')">
+              <i class="fas fa-chart-line"></i> View History
+            </button>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -39,16 +45,26 @@
 
 <script>
   function updateDevices() {
-    fetch('/devices')
-      .then(response => response.text())
-      .then(html => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const newTbody = doc.querySelector('#devices-table tbody');
-        document.querySelector('#devices-table tbody').innerHTML = newTbody.innerHTML;
-      });
+    if (!document.hidden) {
+      fetch('/devices')
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newTbody = doc.querySelector('#devices-table tbody');
+          document.querySelector('#devices-table tbody').innerHTML = newTbody.innerHTML;
+        })
+        .catch(error => console.error('Error updating devices:', error));
+    }
   }
-  setInterval(updateDevices, 60000); // Cập nhật mỗi 60 giây
+
+  // Cập nhật mỗi 5 giây
+  setInterval(updateDevices, 5000);
   updateDevices();
+
+  // Hàm để xem lịch sử hoạt động của một IP
+  function showHistory(ip) {
+    window.location.href = `/device_history/${ip}`;
+  }
 </script>
 {% endblock %}

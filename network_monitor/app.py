@@ -14,10 +14,10 @@ ALLOWED_DEVICES = [
 def index():
     devices = get_devices()
     unauthorized = get_unauthorized_devices(ALLOWED_DEVICES)
-    online_count = sum(1 for device in devices if device['state'] == 'on')
-    offline_count = sum(1 for device in devices if device['state'] == 'off')
+    online_count = sum(1 for device in devices if device['is_online'])
+    offline_count = sum(1 for device in devices if not device['is_online'])
     unauthorized_count = len(unauthorized)
-    return render_template('index.html', online_count=online_count, offline_count=offline_count, unauthorized_count=unauthorized_count)
+    return render_template('index.html', online_count=online_count, offline_count=offline_count, unauthorized_count=unauthorized_count, devices=devices)
 
 # Route cho trang danh sách thiết bị
 @app.route('/devices')
@@ -48,6 +48,13 @@ def security_logs():
 def system_logs():
     logs = get_system_logs()
     return render_template('system_logs.html', logs=logs)
+
+# Route cho trang lịch sử hoạt động của một IP
+@app.route('/device_history/<ip>')
+def device_history(ip):
+    data = get_data_from_sheet("SNMPData", max_rows=100)
+    history = [item for item in data if item['ip_address'] == ip]
+    return render_template('device_history.html', history=history, ip=ip)
 
 if __name__ == '__main__':
     app.run(debug=True)

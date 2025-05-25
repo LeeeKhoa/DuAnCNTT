@@ -17,9 +17,9 @@
       <tbody>
         {% for device in unauthorized %}
         <tr class="table-warning">
-          <td>{{ device['ip_address'] }}</td>
-          <td>{{ device['mac_address'] }}</td>
-          <td>{{ device['detected_at'] }}</td>
+          <td>{{ device.ip_address }}</td>
+          <td>{{ device.mac_address }}</td>
+          <td>{{ device.detected_at }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -29,16 +29,21 @@
 
 <script>
   function updateUnauthorized() {
-    fetch('/unauthorized')
-      .then(response => response.text())
-      .then(html => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const newTbody = doc.querySelector('#unauthorized-table tbody');
-        document.querySelector('#unauthorized-table tbody').innerHTML = newTbody.innerHTML;
-      });
+    if (!document.hidden) {
+      fetch('/unauthorized')
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newTbody = doc.querySelector('#unauthorized-table tbody');
+          document.querySelector('#unauthorized-table tbody').innerHTML = newTbody.innerHTML;
+        })
+        .catch(error => console.error('Error updating unauthorized devices:', error));
+    }
   }
-  setInterval(updateUnauthorized, 60000);
+
+  // Cập nhật mỗi 5 giây
+  setInterval(updateUnauthorized, 5000);
   updateUnauthorized();
 </script>
 {% endblock %}

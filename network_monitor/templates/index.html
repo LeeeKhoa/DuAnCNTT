@@ -30,4 +30,52 @@
     </div>
   </div>
 </div>
+
+<!-- Hiển thị danh sách thiết bị dưới dạng biểu tượng PC -->
+<div class="card mt-4">
+  <div class="card-header">
+    <h3 class="card-title">Trạng thái thiết bị</h3>
+  </div>
+  <div class="card-body">
+    <div class="row" id="devices-container">
+      {% for device in devices %}
+      <div class="col-md-3 text-center mb-4">
+        <i class="fas fa-desktop fa-3x {% if device.is_online %}text-success{% else %}text-secondary{% endif %}" style="cursor: pointer;" onclick="showHistory('{{ device.ip_address }}')" title="IP: {{ device.ip_address }} - Trạng thái: {{ 'Online' if device.is_online else 'Offline' }}"></i>
+        <div class="mt-2">
+          <p><strong>IP:</strong> {{ device.ip_address }}</p>
+          <p><strong>Trạng thái:</strong> {{ 'Online' if device.is_online else 'Offline' }}</p>
+          <button class="btn btn-info btn-sm" onclick="showHistory('{{ device.ip_address }}')">
+            <i class="fas fa-chart-line"></i> View History
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+  function updateDevices() {
+    if (!document.hidden) {
+      fetch('/')
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newContainer = doc.querySelector('#devices-container');
+          document.querySelector('#devices-container').innerHTML = newContainer.innerHTML;
+        })
+        .catch(error => console.error('Error updating devices:', error));
+    }
+  }
+
+  // Cập nhật mỗi 5 giây
+  setInterval(updateDevices, 5000);
+  updateDevices();
+
+  // Hàm để xem lịch sử hoạt động của một IP
+  function showHistory(ip) {
+    window.location.href = `/device_history/${ip}`;
+  }
+</script>
 {% endblock %}

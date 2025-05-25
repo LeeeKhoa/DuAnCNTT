@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card mt-4">
+  <div class="card-header">
+    <h3 class="card-title">Lịch sử hoạt động của IP: {{ ip }}</h3>
+  </div>
+  <div class="card-body">
+    <canvas id="historyChart" width="400" height="200"></canvas>
+    <table class="table table-bordered mt-4" id="history-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>State</th>
+          <th>In Speed (Mbps)</th>
+          <th>Out Speed (Mbps)</th>
+          <th>Link Speed (Mbps)</th>
+          <th>CPU Usage (%)</th>
+          <th>RAM (Used/Total, MB)</th>
+          <th>Disk (Used/Total, MB)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in history %}
+        <tr>
+          <td>{{ entry.timestamp }}</td>
+          <td>{{ entry.state }}</td>
+          <td>{{ entry.network_in_mbps }}</td>
+          <td>{{ entry.network_out_mbps }}</td>
+          <td>{{ entry.link_speed }}</td>
+          <td>{{ entry.cpu_load_percent }}</td>
+          <td>{{ entry.used_ram_mb }} / {{ entry.total_ram_mb }}</td>
+          <td>{{ entry.disk_used_mb }} / {{ entry.disk_total_mb }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Lấy dữ liệu từ Flask
+  const history = {{ history | tojson | safe }};
+  const labels = history.map(entry => entry.timestamp);
+  const inSpeeds = history.map(entry => entry.network_in_mbps);
+  const outSpeeds = history.map(entry => entry.network_out_mbps);
+
+  // Vẽ biểu đồ bằng Chart.js
+  const ctx = document.getElementById('historyChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'In Speed (Mbps)',
+          data: inSpeeds,
+          borderColor: 'blue',
+          fill: false
+        },
+        {
+          label: 'Out Speed (Mbps)',
+          data: outSpeeds,
+          borderColor: 'red',
+          fill: false
+        }
+      ]
+    },
+    options: {
+      scales: {
+        x: { title: { display: true, text: 'Thời gian' } },
+        y: { title: { display: true, text: 'Tốc độ (Mbps)' } }
+      }
+    }
+  });
+
+  // Cập nhật lịch sử mỗi 5 giây
+  function updateHistory() {
+    if (!document.hidden) {
+      fetch(`/device_history/{{ ip }}`)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newTbody = doc.querySelector('#history-table tbody');
+          document.querySelector('#history-table tbody').innerHTML = newTbody.innerHTML;
+        })
+        .catch(error => console.error('Error updating history:', error));
+    }
+  }
+
+  setInterval(updateHistory, 5000);
+  updateHistory();
+</script>
+{% endblock %}
