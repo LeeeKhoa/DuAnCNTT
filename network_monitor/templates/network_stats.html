@@ -10,6 +10,7 @@
     <table class="table table-bordered mt-4" id="stats-table">
       <thead>
         <tr>
+          <th>MAC Address</th>
           <th>IP Address</th>
           <th>In Speed (Mbps)</th>
           <th>Out Speed (Mbps)</th>
@@ -20,6 +21,7 @@
       <tbody>
         {% for stat in stats %}
         <tr>
+          <td>{{ stat.mac_address }}</td>
           <td>{{ stat.ip_address }}</td>
           <td>{{ stat.network_in_mbps }}</td>
           <td>{{ stat.network_out_mbps }}</td>
@@ -34,13 +36,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // Lấy dữ liệu từ Flask
   const stats = {{ stats | tojson | safe }};
   const labels = stats.map(stat => stat.timestamp);
   const inSpeeds = stats.map(stat => stat.network_in_mbps);
   const outSpeeds = stats.map(stat => stat.network_out_mbps);
 
-  // Vẽ biểu đồ bằng Chart.js
   const ctx = document.getElementById('speedChart').getContext('2d');
   new Chart(ctx, {
     type: 'line',
@@ -69,21 +69,41 @@
     }
   });
 
-  // Hàm cập nhật bảng tự động
+  const updateInterval = 300000;
+  const backendUpdateInterval = 300;
+  const loadingOverlay = document.getElementById('loading-overlay');
+
   function updateStats() {
-    fetch('/network_stats')
-      .then(response => response.text())
-      .then(html => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const newTbody = doc.querySelector('#stats-table tbody');
-        document.querySelector('#stats-table tbody').innerHTML = newTbody.innerHTML;
-      })
-      .catch(error => console.error('Error updating stats:', error));
+    if (!document.hidden) {
+      loadingOverlay.style.display = 'flex';
+      fetch('/network_stats')
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newTbody = doc.querySelector('#stats-table tbody');
+          document.querySelector('#stats-table tbody').innerHTML = newTbody.innerHTML;
+        })
+        .catch(error => console.error('Error updating stats:', error))
+        .finally(() => {
+          loadingOverlay.style.display = 'none';
+        });
+    }
   }
 
-  // Cập nhật mỗi 60 giây
-  setInterval(updateStats, 60000);
+  function scheduleNextUpdate() {
+    const now = new Date();
+    const secondsSinceEpoch = Math.floor(now.getTime() / 1000);
+    const secondsUntilNextUpdate = backendUpdateInterval - (secondsSinceEpoch % backendUpdateInterval);
+    const millisecondsUntilNextUpdate = secondsUntilNextUpdate * 1000;
+
+    setTimeout(() => {
+      updateStats();
+      setInterval(updateStats, updateInterval);
+    }, millisecondsUntilNextUpdate + 1000);
+  }
+
   updateStats();
+  scheduleNextUpdate();
 </script>
 {% endblock %}

@@ -6,38 +6,139 @@
     <h3 class="card-title">Security Logs</h3>
   </div>
   <div class="card-body">
-    <table class="table table-bordered" id="security-logs-table">
-      <thead>
-        <tr>
-          <th>Timestamp</th>
-          <th>Log Type</th>
-          <th>Source</th>
-          <th>Event ID</th>
-          <th>Type</th>
-          <th>Category</th>
-          <th>Message</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for log in logs %}
-        <tr>
-          <td>{{ log.timestamp }}</td>
-          <td>{{ log.log_type }}</td>
-          <td>{{ log.source }}</td>
-          <td>{{ log.event_id }}</td>
-          <td>{{ log.type }}</td>
-          <td>{{ log.category }}</td>
-          <td>{{ log.message }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <ul class="nav nav-tabs" id="securityLogsTab" role="tablist">
+      <li class="nav-item">
+        <a class="nav-link active" id="chart-tab" data-toggle="tab" href="#chart" role="tab">Biểu đồ</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="logs-tab" data-toggle="tab" href="#logs" role="tab">Danh sách log</a>
+      </li>
+    </ul>
+    <div class="tab-content" id="securityLogsTabContent">
+      <div class="tab-pane fade show active" id="chart" role="tabpanel">
+        <div class="mt-3">
+          <h4>Tần suất xuất hiện của các sự kiện bảo mật</h4>
+          <canvas id="eventChart" width="400" height="200"></canvas>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="logs" role="tabpanel">
+        <div class="mt-3">
+          <table class="table table-bordered" id="security-logs-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Log Type</th>
+                <th>Source</th>
+                <th>Event ID</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for log in logs %}
+              <tr>
+                <td>{{ log.timestamp }}</td>
+                <td>{{ log.log_type }}</td>
+                <td>{{ log.source }}</td>
+                <td>{{ log.event_id }}</td>
+                <td>{{ log.type }}</td>
+                <td>{{ log.category }}</td>
+                <td>{{ log.message }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+  const updateInterval = 300000;
+  const backendUpdateInterval = 300;
+  const loadingOverlay = document.getElementById('loading-overlay');
+
+  const eventLabels = {
+    4634: "Logoff",
+    4720: "Add user",
+    4722: "Enable user",
+    4723: "User pw change",
+    4724: "Admin pw reset",
+    4726: "Delete user",
+    4732: "Add to group",
+    4733: "Remove from group",
+    4648: "Login RDP",
+    4625: "Brute force login fail"
+  };
+
+  let eventChart = null;
+  const ctx = document.getElementById('eventChart').getContext('2d');
+
+  function drawEventChart(logs) {
+    const eventCounts = {};
+    Object.keys(eventLabels).forEach(eventId => {
+      eventCounts[eventId] = 0;
+    });
+
+    logs.forEach(log => {
+      const eventId = log.event_id.toString();
+      if (eventId in eventCounts) {
+        eventCounts[eventId]++;
+      }
+    });
+
+    const labels = Object.keys(eventLabels).map(eventId => eventLabels[eventId]);
+    const data = Object.keys(eventLabels).map(eventId => eventCounts[eventId]);
+
+    if (eventChart) {
+      eventChart.destroy();
+    }
+
+    eventChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Số lần xuất hiện',
+          data: data,
+          backgroundColor: 'rgba(46, 204, 113, 0.6)',
+          borderColor: 'rgba(46, 204, 113, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        animation: {
+          duration: 1000,
+          easing: 'easeOutQuad'
+        },
+        scales: {
+          x: { title: { display: true, text: 'Sự kiện bảo mật' } },
+          y: { 
+            title: { display: true, text: 'Số lần xuất hiện' },
+            beginAtZero: true,
+            ticks: { stepSize: 1 }
+          }
+        },
+        plugins: {
+          legend: { display: true },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return `${context.dataset.label}: ${context.raw}`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
   function updateSecurityLogs() {
     if (!document.hidden) {
+      loadingOverlay.style.display = 'flex';
       fetch('/security_logs')
         .then(response => response.text())
         .then(html => {
@@ -45,13 +146,38 @@
           const doc = parser.parseFromString(html, 'text/html');
           const newTbody = doc.querySelector('#security-logs-table tbody');
           document.querySelector('#security-logs-table tbody').innerHTML = newTbody.innerHTML;
+
+          const rows = newTbody.querySelectorAll('tr');
+          const logs = Array.from(rows).map(row => {
+            const cells = row.querySelectorAll('td');
+            return {
+              event_id: parseInt(cells[3].textContent.trim())
+            };
+          });
+          drawEventChart(logs);
         })
-        .catch(error => console.error('Error updating security logs:', error));
+        .catch(error => console.error('Error updating security logs:', error))
+        .finally(() => {
+          loadingOverlay.style.display = 'none';
+        });
     }
   }
 
-  // Cập nhật mỗi 5 giây
-  setInterval(updateSecurityLogs, 5000);
-  updateSecurityLogs();
+  function scheduleNextUpdate() {
+    const now = new Date();
+    const secondsSinceEpoch = Math.floor(now.getTime() / 1000);
+    const secondsUntilNextUpdate = backendUpdateInterval - (secondsSinceEpoch % backendUpdateInterval);
+    const millisecondsUntilNextUpdate = secondsUntilNextUpdate * 1000;
+
+    setTimeout(() => {
+      updateSecurityLogs();
+      setInterval(updateSecurityLogs, updateInterval);
+    }, millisecondsUntilNextUpdate + 1000);
+  }
+
+  const initialLogs = {{ logs | tojson | safe }};
+  drawEventChart(initialLogs);
+
+  scheduleNextUpdate();
 </script>
 {% endblock %}

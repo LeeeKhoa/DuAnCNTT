@@ -6,38 +6,154 @@
     <h3 class="card-title">System Logs</h3>
   </div>
   <div class="card-body">
-    <table class="table table-bordered" id="system-logs-table">
-      <thead>
-        <tr>
-          <th>Timestamp</th>
-          <th>Log Type</th>
-          <th>Source</th>
-          <th>Event ID</th>
-          <th>Type</th>
-          <th>Category</th>
-          <th>Message</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for log in logs %}
-        <tr>
-          <td>{{ log.timestamp }}</td>
-          <td>{{ log.log_type }}</td>
-          <td>{{ log.source }}</td>
-          <td>{{ log.event_id }}</td>
-          <td>{{ log.type }}</td>
-          <td>{{ log.category }}</td>
-          <td>{{ log.message }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" id="systemLogsTab" role="tablist">
+      <li class="nav-item">
+        <a class="nav-link active" id="chart-tab" data-toggle="tab" href="#chart" role="tab">Biểu đồ</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="logs-tab" data-toggle="tab" href="#logs" role="tab">Danh sách log</a>
+      </li>
+    </ul>
+    <div class="tab-content" id="systemLogsTabContent">
+      <!-- Tab Biểu đồ -->
+      <div class="tab-pane fade show active" id="chart" role="tabpanel">
+        <div class="mt-3">
+          <h4>Tỷ lệ các sự kiện hệ thống</h4>
+          <div style="max-width: 500px; margin: 0 auto;">
+            <canvas id="eventChart" width="400" height="400"></canvas>
+          </div>
+        </div>
+      </div>
+      <!-- Tab Danh sách log -->
+      <div class="tab-pane fade" id="logs" role="tabpanel">
+        <div class="mt-3">
+          <table class="table table-bordered" id="system-logs-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Log Type</th>
+                <th>Source</th>
+                <th>Event ID</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for log in logs %}
+              <tr>
+                <td>{{ log.timestamp }}</td>
+                <td>{{ log.log_type }}</td>
+                <td>{{ log.source }}</td>
+                <td>{{ log.event_id }}</td>
+                <td>{{ log.type }}</td>
+                <td>{{ log.category }}</td>
+                <td>{{ log.message }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+  const updateInterval = 300000;
+  const backendUpdateInterval = 300;
+  const loadingOverlay = document.getElementById('loading-overlay');
+
+  const eventLabels = {
+    6005: "System start",
+    6006: "System shutdown",
+    6008: "Unexpected shutdown",
+    41: "Power loss",
+    7000: "Service failed",
+    7036: "Service status change"
+  };
+
+  let eventChart = null;
+  const ctx = document.getElementById('eventChart').getContext('2d');
+
+  function drawEventChart(logs) {
+    const eventCounts = {};
+    let totalRelevantEvents = 0;
+    Object.keys(eventLabels).forEach(eventId => {
+      eventCounts[eventId] = 0;
+    });
+
+    logs.forEach(log => {
+      const eventId = log.event_id.toString();
+      if (eventId in eventCounts) {
+        eventCounts[eventId]++;
+        totalRelevantEvents++;
+      }
+    });
+
+    const labels = Object.keys(eventLabels).map(eventId => eventLabels[eventId]);
+    const data = Object.keys(eventLabels).map(eventId => eventCounts[eventId]);
+
+    if (totalRelevantEvents === 0) {
+      if (eventChart) {
+        eventChart.destroy();
+        eventChart = null;
+      }
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "#999";
+      ctx.textAlign = "center";
+      ctx.fillText("Không có sự kiện hệ thống nào được ghi nhận.", ctx.canvas.width / 2, ctx.canvas.height / 2);
+      return;
+    }
+
+    const percentages = data.map(count => totalRelevantEvents > 0 ? (count / totalRelevantEvents * 100).toFixed(2) : 0);
+
+    if (eventChart) {
+      eventChart.destroy();
+    }
+
+    eventChart = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: [
+            '#FF6B6B', '#4ECDC4', '#FFD93D', '#6A0572', '#FF8C42', '#1A535C'
+          ],
+          borderColor: [
+            '#FF6B6B', '#4ECDC4', '#FFD93D', '#6A0572', '#FF8C42', '#1A535C'
+          ],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        animation: {
+          duration: 1000,
+          easing: 'easeOutBounce'
+        },
+        plugins: {
+          legend: { display: true, position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.raw || 0;
+                const percentage = percentages[context.dataIndex];
+                return `${label}: ${value} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
   function updateSystemLogs() {
     if (!document.hidden) {
+      loadingOverlay.style.display = 'flex';
       fetch('/system_logs')
         .then(response => response.text())
         .then(html => {
@@ -45,13 +161,38 @@
           const doc = parser.parseFromString(html, 'text/html');
           const newTbody = doc.querySelector('#system-logs-table tbody');
           document.querySelector('#system-logs-table tbody').innerHTML = newTbody.innerHTML;
+
+          const rows = newTbody.querySelectorAll('tr');
+          const logs = Array.from(rows).map(row => {
+            const cells = row.querySelectorAll('td');
+            return {
+              event_id: parseInt(cells[3].textContent.trim())
+            };
+          });
+          drawEventChart(logs);
         })
-        .catch(error => console.error('Error updating system logs:', error));
+        .catch(error => console.error('Error updating system logs:', error))
+        .finally(() => {
+          loadingOverlay.style.display = 'none';
+        });
     }
   }
 
-  // Cập nhật mỗi 5 giây
-  setInterval(updateSystemLogs, 5000);
-  updateSystemLogs();
+  function scheduleNextUpdate() {
+    const now = new Date();
+    const secondsSinceEpoch = Math.floor(now.getTime() / 1000);
+    const secondsUntilNextUpdate = backendUpdateInterval - (secondsSinceEpoch % backendUpdateInterval);
+    const millisecondsUntilNextUpdate = secondsUntilNextUpdate * 1000;
+
+    setTimeout(() => {
+      updateSystemLogs();
+      setInterval(updateSystemLogs, updateInterval);
+    }, millisecondsUntilNextUpdate + 1000);
+  }
+
+  const initialLogs = {{ logs | tojson | safe }};
+  drawEventChart(initialLogs);
+
+  scheduleNextUpdate();
 </script>
 {% endblock %}

@@ -11,6 +11,10 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='AdminLTE-3.2.0/plugins/fontawesome-free/css/all.min.css') }}">
   <!-- Theme style -->
   <link rel="stylesheet" href="{{ url_for('static', filename='AdminLTE-3.2.0/dist/css/adminlte.min.css') }}">
+  <!-- Tùy chỉnh CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
@@ -22,6 +26,9 @@
       </li>
     </ul>
     <ul class="navbar-nav ml-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="#" id="theme-toggle"><i class="fas fa-moon"></i></a>
+      </li>
       <li class="nav-item">
         <a class="nav-link" href="#">Đăng xuất</a>
       </li>
@@ -92,11 +99,59 @@
   </footer>
 </div>
 
+<!-- Spinner Loading -->
+<div class="loading-overlay" id="loading-overlay" style="display: none;">
+  <div class="spinner-border text-primary" role="status">
+    <span class="sr-only">Loading...</span>
+  </div>
+</div>
+
 <!-- jQuery -->
 <script src="{{ url_for('static', filename='AdminLTE-3.2.0/plugins/jquery/jquery.min.js') }}"></script>
 <!-- Bootstrap 4 -->
 <script src="{{ url_for('static', filename='AdminLTE-3.2.0/plugins/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 <!-- AdminLTE App -->
 <script src="{{ url_for('static', filename='AdminLTE-3.2.0/dist/js/adminlte.min.js') }}"></script>
+<!-- Script chuyển đổi Dark Mode và hiệu ứng -->
+<script>
+  const themeToggle = document.getElementById('theme-toggle');
+  const body = document.body;
+
+  // Kiểm tra theme đã lưu trong localStorage
+  if (localStorage.getItem('theme') === 'dark') {
+    body.classList.add('dark-mode');
+    themeToggle.querySelector('i').classList.replace('fa-moon', 'fa-sun');
+  }
+
+  themeToggle.addEventListener('click', () => {
+    body.classList.toggle('dark-mode');
+    if (body.classList.contains('dark-mode')) {
+      localStorage.setItem('theme', 'dark');
+      themeToggle.querySelector('i').classList.replace('fa-moon', 'fa-sun');
+    } else {
+      localStorage.setItem('theme', 'light');
+      themeToggle.querySelector('i').classList.replace('fa-sun', 'fa-moon');
+    }
+  });
+
+  // Hiệu ứng fade khi chuyển trang
+  document.querySelectorAll('.nav-link').forEach(link => {
+    if (!link.id && link.href !== '#' && !link.href.includes('logout')) { // Bỏ qua các link không cần fade
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const href = this.href;
+        document.body.classList.add('fade-out');
+        setTimeout(() => {
+          window.location.href = href;
+        }, 300);
+      });
+    }
+  });
+
+  // Hiệu ứng fade-in khi tải trang
+  window.addEventListener('load', () => {
+    document.body.classList.add('fade-in');
+  });
+</script>
 </body>
 </html>

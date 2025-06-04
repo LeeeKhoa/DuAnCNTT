@@ -3,7 +3,7 @@
 {% block content %}
 <div class="card mt-4">
   <div class="card-header">
-    <h3 class="card-title">Lịch sử hoạt động của IP: {{ ip }}</h3>
+    <h3 class="card-title">Lịch sử hoạt động của MAC: {{ mac }}</h3>
   </div>
   <div class="card-body">
     <canvas id="historyChart" width="400" height="200"></canvas>
@@ -12,6 +12,7 @@
         <tr>
           <th>Timestamp</th>
           <th>State</th>
+          <th>IP Address</th>
           <th>In Speed (Mbps)</th>
           <th>Out Speed (Mbps)</th>
           <th>Link Speed (Mbps)</th>
@@ -25,6 +26,7 @@
         <tr>
           <td>{{ entry.timestamp }}</td>
           <td>{{ entry.state }}</td>
+          <td>{{ entry.ip_address }}</td>
           <td>{{ entry.network_in_mbps }}</td>
           <td>{{ entry.network_out_mbps }}</td>
           <td>{{ entry.link_speed }}</td>
@@ -40,13 +42,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // Lấy dữ liệu từ Flask
   const history = {{ history | tojson | safe }};
   const labels = history.map(entry => entry.timestamp);
   const inSpeeds = history.map(entry => entry.network_in_mbps);
   const outSpeeds = history.map(entry => entry.network_out_mbps);
 
-  // Vẽ biểu đồ bằng Chart.js
   const ctx = document.getElementById('historyChart').getContext('2d');
   new Chart(ctx, {
     type: 'line',
@@ -75,10 +75,14 @@
     }
   });
 
-  // Cập nhật lịch sử mỗi 5 giây
+  const updateInterval = 300000;
+  const backendUpdateInterval = 300;
+  const loadingOverlay = document.getElementById('loading-overlay');
+
   function updateHistory() {
     if (!document.hidden) {
-      fetch(`/device_history/{{ ip }}`)
+      loadingOverlay.style.display = 'flex';
+      fetch(`/device_history/{{ mac }}`)
         .then(response => response.text())
         .then(html => {
           const parser = new DOMParser();
@@ -86,11 +90,26 @@
           const newTbody = doc.querySelector('#history-table tbody');
           document.querySelector('#history-table tbody').innerHTML = newTbody.innerHTML;
         })
-        .catch(error => console.error('Error updating history:', error));
+        .catch(error => console.error('Error updating history:', error))
+        .finally(() => {
+          loadingOverlay.style.display = 'none';
+        });
     }
   }
 
-  setInterval(updateHistory, 5000);
+  function scheduleNextUpdate() {
+    const now = new Date();
+    const secondsSinceEpoch = Math.floor(now.getTime() / 1000);
+    const secondsUntilNextUpdate = backendUpdateInterval - (secondsSinceEpoch % backendUpdateInterval);
+    const millisecondsUntilNextUpdate = secondsUntilNextUpdate * 1000;
+
+    setTimeout(() => {
+      updateHistory();
+      setInterval(updateHistory, updateInterval);
+    }, millisecondsUntilNextUpdate + 1000);
+  }
+
   updateHistory();
+  scheduleNextUpdate();
 </script>
 {% endblock %}

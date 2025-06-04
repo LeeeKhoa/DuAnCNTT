@@ -1,19 +1,13 @@
-from flask import Flask, render_template
-from sheets import get_data_from_sheet, get_devices, get_network_stats, get_unauthorized_devices, get_security_logs, get_system_logs
+from flask import Flask, render_template, jsonify
+from sheets import get_data_from_sheet, get_devices, get_network_stats, get_unauthorized_devices, get_security_logs, get_system_logs, add_to_trusted_devices, remove_from_trusted_devices, add_to_blocked_devices
 
 app = Flask(__name__)
-
-# Danh sách thiết bị được phép
-ALLOWED_DEVICES = [
-    ("192.168.1.10", "AA:BB:CC:DD:EE:FF"),
-    ("192.168.1.11", "11:22:33:44:55:66")
-]
 
 # Route cho trang chính (dashboard)
 @app.route('/')
 def index():
     devices = get_devices()
-    unauthorized = get_unauthorized_devices(ALLOWED_DEVICES)
+    unauthorized = get_unauthorized_devices()
     online_count = sum(1 for device in devices if device['is_online'])
     offline_count = sum(1 for device in devices if not device['is_online'])
     unauthorized_count = len(unauthorized)
@@ -34,7 +28,7 @@ def network_stats():
 # Route cho trang thiết bị lạ
 @app.route('/unauthorized')
 def unauthorized():
-    unauthorized = get_unauthorized_devices(ALLOWED_DEVICES)
+    unauthorized = get_unauthorized_devices()
     return render_template('unauthorized.html', unauthorized=unauthorized)
 
 # Route cho trang SecurityLog
@@ -49,12 +43,39 @@ def system_logs():
     logs = get_system_logs()
     return render_template('system_logs.html', logs=logs)
 
-# Route cho trang lịch sử hoạt động của một IP
-@app.route('/device_history/<ip>')
-def device_history(ip):
+# Route cho trang lịch sử hoạt động của một MAC address
+@app.route('/device_history/<mac>')
+def device_history(mac):
     data = get_data_from_sheet("SNMPData", max_rows=100)
-    history = [item for item in data if item['ip_address'] == ip]
-    return render_template('device_history.html', history=history, ip=ip)
+    history = [item for item in data if item['mac_address'].strip().upper() == mac.strip().upper()]
+    return render_template('device_history.html', history=history, mac=mac)
+
+# Route để thêm một thiết bị vào danh sách đăng ký (TrustDevices)
+@app.route('/register/<mac>', methods=['POST'])
+def register_device(mac):
+    try:
+        add_to_trusted_devices(mac)
+        return jsonify({"status": "success", "message": f"Đã đăng ký thiết bị {mac}"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# Route để xóa một thiết bị khỏi danh sách đăng ký (TrustDevices)
+@app.route('/unregister/<mac>', methods=['POST'])
+def unregister_device(mac):
+    try:
+        remove_from_trusted_devices(mac)
+        return jsonify({"status": "success", "message": f"Đã xóa thiết bị {mac} khỏi danh sách đăng ký"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# Route để chặn một thiết bị (thêm vào BlockedDevices)
+@app.route('/block/<mac>', methods=['POST'])
+def block_device(mac):
+    try:
+        add_to_blocked_devices(mac)
+        return jsonify({"status": "success", "message": f"Đã chặn thiết bị {mac}"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

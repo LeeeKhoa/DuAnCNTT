@@ -9,8 +9,8 @@
     <table class="table table-bordered" id="devices-table">
       <thead>
         <tr>
-          <th>IP Address</th>
           <th>MAC Address</th>
+          <th>IP Address</th>
           <th>State</th>
           <th>CPU Usage (%)</th>
           <th>RAM (Used/Total, MB)</th>
@@ -23,8 +23,8 @@
       <tbody>
         {% for device in devices %}
         <tr class="{% if device.is_online %}table-success{% else %}table-secondary{% endif %}">
-          <td>{{ device.ip_address }}</td>
           <td>{{ device.mac_address }}</td>
+          <td>{{ device.ip_address }}</td>
           <td>{{ 'Online' if device.is_online else 'Offline' }}</td>
           <td>{{ device.cpu_load_percent }}</td>
           <td>{{ device.used_ram_mb }} / {{ device.total_ram_mb }}</td>
@@ -32,7 +32,7 @@
           <td>{{ device.link_speed }}</td>
           <td>{{ device.timestamp }}</td>
           <td>
-            <button class="btn btn-info btn-sm" onclick="showHistory('{{ device.ip_address }}')">
+            <button class="btn btn-info btn-sm" onclick="showHistory('{{ device.mac_address }}')">
               <i class="fas fa-chart-line"></i> View History
             </button>
           </td>
@@ -44,8 +44,13 @@
 </div>
 
 <script>
+  const updateInterval = 300000;
+  const backendUpdateInterval = 300;
+  const loadingOverlay = document.getElementById('loading-overlay');
+
   function updateDevices() {
     if (!document.hidden) {
+      loadingOverlay.style.display = 'flex';
       fetch('/devices')
         .then(response => response.text())
         .then(html => {
@@ -54,17 +59,30 @@
           const newTbody = doc.querySelector('#devices-table tbody');
           document.querySelector('#devices-table tbody').innerHTML = newTbody.innerHTML;
         })
-        .catch(error => console.error('Error updating devices:', error));
+        .catch(error => console.error('Error updating devices:', error))
+        .finally(() => {
+          loadingOverlay.style.display = 'none';
+        });
     }
   }
 
-  // Cập nhật mỗi 5 giây
-  setInterval(updateDevices, 5000);
-  updateDevices();
+  function scheduleNextUpdate() {
+    const now = new Date();
+    const secondsSinceEpoch = Math.floor(now.getTime() / 1000);
+    const secondsUntilNextUpdate = backendUpdateInterval - (secondsSinceEpoch % backendUpdateInterval);
+    const millisecondsUntilNextUpdate = secondsUntilNextUpdate * 1000;
 
-  // Hàm để xem lịch sử hoạt động của một IP
-  function showHistory(ip) {
-    window.location.href = `/device_history/${ip}`;
+    setTimeout(() => {
+      updateDevices();
+      setInterval(updateDevices, updateInterval);
+    }, millisecondsUntilNextUpdate + 1000);
+  }
+
+  updateDevices();
+  scheduleNextUpdate();
+
+  function showHistory(mac) {
+    window.location.href = `/device_history/${mac}`;
   }
 </script>
 {% endblock %}

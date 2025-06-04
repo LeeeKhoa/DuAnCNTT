@@ -9,16 +9,16 @@
     <table class="table table-bordered" id="unauthorized-table">
       <thead>
         <tr>
-          <th>IP Address</th>
           <th>MAC Address</th>
+          <th>IP Address</th>
           <th>Detected At</th>
         </tr>
       </thead>
       <tbody>
         {% for device in unauthorized %}
         <tr class="table-warning">
-          <td>{{ device.ip_address }}</td>
           <td>{{ device.mac_address }}</td>
+          <td>{{ device.ip_address }}</td>
           <td>{{ device.detected_at }}</td>
         </tr>
         {% endfor %}
@@ -28,8 +28,13 @@
 </div>
 
 <script>
+  const updateInterval = 300000;
+  const backendUpdateInterval = 300;
+  const loadingOverlay = document.getElementById('loading-overlay');
+
   function updateUnauthorized() {
     if (!document.hidden) {
+      loadingOverlay.style.display = 'flex';
       fetch('/unauthorized')
         .then(response => response.text())
         .then(html => {
@@ -38,12 +43,26 @@
           const newTbody = doc.querySelector('#unauthorized-table tbody');
           document.querySelector('#unauthorized-table tbody').innerHTML = newTbody.innerHTML;
         })
-        .catch(error => console.error('Error updating unauthorized devices:', error));
+        .catch(error => console.error('Error updating unauthorized devices:', error))
+        .finally(() => {
+          loadingOverlay.style.display = 'none';
+        });
     }
   }
 
-  // Cập nhật mỗi 5 giây
-  setInterval(updateUnauthorized, 5000);
+  function scheduleNextUpdate() {
+    const now = new Date();
+    const secondsSinceEpoch = Math.floor(now.getTime() / 1000);
+    const secondsUntilNextUpdate = backendUpdateInterval - (secondsSinceEpoch % backendUpdateInterval);
+    const millisecondsUntilNextUpdate = secondsUntilNextUpdate * 1000;
+
+    setTimeout(() => {
+      updateUnauthorized();
+      setInterval(updateUnauthorized, updateInterval);
+    }, millisecondsUntilNextUpdate + 1000);
+  }
+
   updateUnauthorized();
+  scheduleNextUpdate();
 </script>
 {% endblock %}

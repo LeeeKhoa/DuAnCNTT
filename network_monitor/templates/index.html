@@ -39,14 +39,36 @@
   <div class="card-body">
     <div class="row" id="devices-container">
       {% for device in devices %}
-      <div class="col-md-3 text-center mb-4">
-        <i class="fas fa-desktop fa-3x {% if device.is_online %}text-success{% else %}text-secondary{% endif %}" style="cursor: pointer;" onclick="showHistory('{{ device.ip_address }}')" title="IP: {{ device.ip_address }} - Trạng thái: {{ 'Online' if device.is_online else 'Offline' }}"></i>
+      <div class="col-md-3 text-center mb-4" data-mac="{{ device.mac_address }}">
+        <i class="fas fa-desktop fa-3x 
+          {% if device.is_trusted %}
+            {% if device.is_online %}text-success{% else %}text-secondary{% endif %}
+          {% else %}
+            text-danger
+          {% endif %}" 
+          style="cursor: pointer;" 
+          onclick="showHistory('{{ device.mac_address }}')" 
+          title="MAC: {{ device.mac_address }} - Trạng thái: {{ 'Online' if device.is_online else 'Offline' }} - {% if device.is_trusted %}Đã đăng ký{% else %}Chưa đăng ký{% endif %}"></i>
         <div class="mt-2">
-          <p><strong>IP:</strong> {{ device.ip_address }}</p>
+          <p><strong>MAC:</strong> {{ device.mac_address }}</p>
           <p><strong>Trạng thái:</strong> {{ 'Online' if device.is_online else 'Offline' }}</p>
-          <button class="btn btn-info btn-sm" onclick="showHistory('{{ device.ip_address }}')">
-            <i class="fas fa-chart-line"></i> View History
-          </button>
+          <div class="d-flex justify-content-center gap-2 flex-wrap">
+            <button class="btn btn-info btn-sm" onclick="showHistory('{{ device.mac_address }}')">
+              <i class="fas fa-chart-line"></i> View History
+            </button>
+            {% if device.is_trusted %}
+            <button class="btn btn-danger btn-sm" onclick="unregisterDevice('{{ device.mac_address }}')">
+              <i class="fas fa-trash"></i> Xóa
+            </button>
+            {% else %}
+            <button class="btn btn-success btn-sm" onclick="registerDevice('{{ device.mac_address }}')">
+              <i class="fas fa-check"></i> Đăng ký
+            </button>
+            <button class="btn btn-warning btn-sm" onclick="blockDevice('{{ device.mac_address }}')">
+              <i class="fas fa-ban"></i> Block
+            </button>
+            {% endif %}
+          </div>
         </div>
       </div>
       {% endfor %}
@@ -55,8 +77,13 @@
 </div>
 
 <script>
+  const updateInterval = 300000;
+  const backendUpdateInterval = 300;
+  const loadingOverlay = document.getElementById('loading-overlay');
+
   function updateDevices() {
     if (!document.hidden) {
+      loadingOverlay.style.display = 'flex';
       fetch('/')
         .then(response => response.text())
         .then(html => {
@@ -65,17 +92,157 @@
           const newContainer = doc.querySelector('#devices-container');
           document.querySelector('#devices-container').innerHTML = newContainer.innerHTML;
         })
-        .catch(error => console.error('Error updating devices:', error));
+        .catch(error => console.error('Error updating devices:', error))
+        .finally(() => {
+          loadingOverlay.style.display = 'none';
+        });
     }
   }
 
-  // Cập nhật mỗi 5 giây
-  setInterval(updateDevices, 5000);
-  updateDevices();
+  function scheduleNextUpdate() {
+    const now = new Date();
+    const secondsSinceEpoch = Math.floor(now.getTime() / 1000);
+    const secondsUntilNextUpdate = backendUpdateInterval - (secondsSinceEpoch % backendUpdateInterval);
+    const millisecondsUntilNextUpdate = secondsUntilNextUpdate * 1000;
 
-  // Hàm để xem lịch sử hoạt động của một IP
-  function showHistory(ip) {
-    window.location.href = `/device_history/${ip}`;
+    setTimeout(() => {
+      updateDevices();
+      setInterval(updateDevices, updateInterval);
+    }, millisecondsUntilNextUpdate + 1000);
+  }
+
+  function registerDevice(mac) {
+    loadingOverlay.style.display = 'flex';
+    fetch(`/register/${mac}`, { method: 'POST' })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === "success") {
+          Swal.fire({
+            icon: 'success',
+            title: 'Thành công',
+            text: data.message,
+            showConfirmButton: false,
+            timer: 1500
+          }).then(() => {
+            updateDevices();
+          });
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'Lỗi',
+            text: data.message
+          });
+        }
+      })
+      .catch(error => {
+        Swal.fire({
+          icon: 'error',
+          title: 'Lỗi',
+          text: 'Đã xảy ra lỗi: ' + error
+        });
+      })
+      .finally(() => {
+        loadingOverlay.style.display = 'none';
+      });
+  }
+
+  function unregisterDevice(mac) {
+    Swal.fire({
+      title: 'Xác nhận',
+      text: `Bạn có chắc muốn xóa thiết bị ${mac} khỏi danh sách đăng ký không?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Xóa',
+      cancelButtonText: 'Hủy'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        loadingOverlay.style.display = 'flex';
+        fetch(`/unregister/${mac}`, { method: 'POST' })
+          .then(response => response.json())
+          .then(data => {
+            if (data.status === "success") {
+              Swal.fire({
+                icon: 'success',
+                title: 'Thành công',
+                text: data.message,
+                showConfirmButton: false,
+                timer: 1500
+              }).then(() => {
+                updateDevices();
+              });
+            } else {
+              Swal.fire({
+                icon: 'error',
+                title: 'Lỗi',
+                text: data.message
+              });
+            }
+          })
+          .catch(error => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Lỗi',
+              text: 'Đã xảy ra lỗi: ' + error
+            });
+          })
+          .finally(() => {
+            loadingOverlay.style.display = 'none';
+          });
+      }
+    });
+  }
+
+  function blockDevice(mac) {
+    Swal.fire({
+      title: 'Xác nhận',
+      text: `Bạn có chắc muốn chặn thiết bị ${mac} không?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Chặn',
+      cancelButtonText: 'Hủy'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        loadingOverlay.style.display = 'flex';
+        fetch(`/block/${mac}`, { method: 'POST' })
+          .then(response => response.json())
+          .then(data => {
+            if (data.status === "success") {
+              Swal.fire({
+                icon: 'success',
+                title: 'Thành công',
+                text: data.message,
+                showConfirmButton: false,
+                timer: 1500
+              }).then(() => {
+                updateDevices();
+              });
+            } else {
+              Swal.fire({
+                icon: 'error',
+                title: 'Lỗi',
+                text: data.message
+              });
+            }
+          })
+          .catch(error => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Lỗi',
+              text: 'Đã xảy ra lỗi: ' + error
+            });
+          })
+          .finally(() => {
+            loadingOverlay.style.display = 'none';
+          });
+      }
+    });
+  }
+
+  updateDevices();
+  scheduleNextUpdate();
+
+  function showHistory(mac) {
+    window.location.href = `/device_history/${mac}`;
   }
 </script>
 {% endblock %}

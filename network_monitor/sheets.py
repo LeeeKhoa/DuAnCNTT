@@ -46,33 +46,116 @@ def get_data_from_sheet(sheet_name, max_rows=50):
         print(f"[ERROR] Không thể đọc dữ liệu từ sheet {sheet_name}: {e}")
         return []
 
-# Hàm lấy danh sách thiết bị (đã lọc IP trùng lặp và tính trạng thái online/offline)
+# Hàm đọc danh sách MAC address từ tab TrustDevices
+def get_trusted_devices():
+    try:
+        data = get_data_from_sheet("TrustDevices")
+        trusted_macs = [item['mac_address'].strip().upper() for item in data if 'mac_address' in item and item['mac_address']]
+        return set(trusted_macs)
+    except Exception as e:
+        print(f"[ERROR] Không thể đọc dữ liệu từ tab TrustDevices: {e}")
+        return set()
+
+# Hàm đọc danh sách MAC address từ tab BlockedDevices
+def get_blocked_devices():
+    try:
+        data = get_data_from_sheet("BlockedDevices")
+        blocked_macs = [item['mac_address'].strip().upper() for item in data if 'mac_address' in item and item['mac_address']]
+        return set(blocked_macs)
+    except Exception as e:
+        print(f"[ERROR] Không thể đọc dữ liệu từ tab BlockedDevices: {e}")
+        return set()
+
+# Hàm thêm một mac_address vào tab TrustDevices
+def add_to_trusted_devices(mac_address):
+    try:
+        sheet = spreadsheet.worksheet("TrustDevices")
+        # Lấy tất cả dữ liệu hiện có
+        data = sheet.get_all_values()
+        # Nếu sheet trống, thêm tiêu đề
+        if not data:
+            sheet.append_row(['mac_address'])
+        # Thêm mac_address mới
+        sheet.append_row([mac_address.strip().upper()])
+        print(f"[OK] Đã thêm {mac_address} vào tab TrustDevices")
+    except Exception as e:
+        print(f"[ERROR] Không thể thêm {mac_address} vào tab TrustDevices: {e}")
+        raise
+
+# Hàm xóa một mac_address khỏi tab TrustDevices
+def remove_from_trusted_devices(mac_address):
+    try:
+        sheet = spreadsheet.worksheet("TrustDevices")
+        # Lấy tất cả dữ liệu
+        data = sheet.get_all_values()
+        if not data:
+            return  # Nếu sheet trống, không làm gì
+        # Tìm hàng chứa mac_address
+        mac_address = mac_address.strip().upper()
+        row_to_delete = None
+        for idx, row in enumerate(data, start=1):
+            if row and row[0].strip().upper() == mac_address:
+                row_to_delete = idx
+                break
+        # Xóa hàng nếu tìm thấy
+        if row_to_delete:
+            sheet.delete_rows(row_to_delete)
+            print(f"[OK] Đã xóa {mac_address} khỏi tab TrustDevices")
+    except Exception as e:
+        print(f"[ERROR] Không thể xóa {mac_address} khỏi tab TrustDevices: {e}")
+        raise
+
+# Hàm thêm một mac_address vào tab BlockedDevices
+def add_to_blocked_devices(mac_address):
+    try:
+        # Kiểm tra nếu tab BlockedDevices chưa tồn tại, thì tạo mới
+        try:
+            sheet = spreadsheet.worksheet("BlockedDevices")
+        except gspread.exceptions.WorksheetNotFound:
+            sheet = spreadsheet.add_worksheet(title="BlockedDevices", rows="100", cols="1")
+            sheet.append_row(['mac_address'])
+        # Lấy tất cả dữ liệu hiện có
+        data = sheet.get_all_values()
+        # Thêm mac_address mới
+        mac_address = mac_address.strip().upper()
+        # Kiểm tra xem mac_address đã tồn tại chưa
+        if not any(row[0].strip().upper() == mac_address for row in data if row):
+            sheet.append_row([mac_address])
+            print(f"[OK] Đã thêm {mac_address} vào tab BlockedDevices")
+    except Exception as e:
+        print(f"[ERROR] Không thể thêm {mac_address} vào tab BlockedDevices: {e}")
+        raise
+
+# Hàm lấy danh sách thiết bị (đã lọc trùng lặp dựa trên mac_address)
 def get_devices():
     data = get_data_from_sheet("SNMPData")
     # Sắp xếp theo timestamp để bản ghi mới nhất lên đầu
     sorted_data = sorted(data, key=lambda x: x['timestamp'], reverse=True)
-    # Lọc để chỉ giữ bản ghi mới nhất cho mỗi IP
-    seen_ips = set()
+    # Lọc để chỉ giữ bản ghi mới nhất cho mỗi mac_address
+    seen_macs = set()
     filtered_data = []
     # Định nghĩa múi giờ +07:00 (Việt Nam)
     vn_timezone = timezone(timedelta(hours=7))
+    # Lấy danh sách thiết bị tin cậy và bị chặn
+    trusted_macs = get_trusted_devices()
+    blocked_macs = get_blocked_devices()
     for item in sorted_data:
-        ip = item['ip_address']
-        if ip not in seen_ips:
-            seen_ips.add(ip)
+        mac = item['mac_address'].strip().upper()
+        if mac not in seen_macs:
+            seen_macs.add(mac)
+            # Bỏ qua thiết bị nếu bị chặn
+            if mac in blocked_macs:
+                continue
+            # Thêm thông tin trạng thái đăng ký
+            item['is_trusted'] = mac in trusted_macs
             # Tính trạng thái online/offline dựa trên timestamp
             try:
-                # Chuyển timestamp thành datetime offset-aware (múi giờ +07:00)
                 timestamp = datetime.strptime(item['timestamp'], '%Y-%m-%d %H:%M:%S')
                 timestamp = timestamp.replace(tzinfo=vn_timezone)
-                # Lấy thời gian hiện tại ở múi giờ +07:00
                 current_time = datetime.now(vn_timezone)
-                # Tính khoảng cách thời gian
                 time_diff = (current_time - timestamp).total_seconds()
-                # Nếu bản ghi mới nhất cách hiện tại ≤ 60 giây, coi là online
                 item['is_online'] = time_diff <= 60
             except ValueError:
-                # Nếu timestamp không hợp lệ, coi là offline
                 item['is_online'] = False
             filtered_data.append(item)
     return filtered_data
@@ -82,20 +165,27 @@ def get_network_stats(max_rows=50):
     data = get_data_from_sheet("SNMPData", max_rows)
     return sorted(data, key=lambda x: x['timestamp'], reverse=True)
 
-# Hàm phát hiện thiết bị lạ (đã lọc IP trùng lặp)
-def get_unauthorized_devices(allowed_devices):
+# Hàm phát hiện thiết bị lạ (đã lọc trùng lặp dựa trên mac_address)
+def get_unauthorized_devices():
     data = get_data_from_sheet("SNMPData")
+    # Lấy danh sách MAC address từ tab TrustDevices và BlockedDevices
+    trusted_macs = get_trusted_devices()
+    blocked_macs = get_blocked_devices()
     unauthorized = []
     # Sắp xếp theo timestamp để bản ghi mới nhất lên đầu
     sorted_data = sorted(data, key=lambda x: x['timestamp'], reverse=True)
-    # Lọc để chỉ giữ bản ghi mới nhất cho mỗi IP
-    seen_ips = set()
+    # Lọc để chỉ giữ bản ghi mới nhất cho mỗi mac_address
+    seen_macs = set()
     filtered_data = []
     for device in sorted_data:
-        ip = device['ip_address']
-        if ip not in seen_ips:
-            seen_ips.add(ip)
-            if (device['ip_address'], device['mac_address']) not in allowed_devices:
+        mac = device['mac_address'].strip().upper()
+        if mac not in seen_macs:
+            seen_macs.add(mac)
+            # Bỏ qua thiết bị nếu bị chặn
+            if mac in blocked_macs:
+                continue
+            # Kiểm tra nếu mac_address không nằm trong danh sách tin cậy
+            if mac not in trusted_macs:
                 filtered_data.append({
                     'ip_address': device['ip_address'],
                     'mac_address': device['mac_address'],
