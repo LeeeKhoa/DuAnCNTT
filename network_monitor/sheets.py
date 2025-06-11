@@ -73,11 +73,15 @@ def add_to_trusted_devices(mac_address):
         # Lấy tất cả dữ liệu hiện có
         data = sheet.get_all_values()
         # Nếu sheet trống, thêm tiêu đề
-        if not data:
+        if not data or (len(data) == 1 and not data[0]):
             sheet.append_row(['mac_address'])
         # Thêm mac_address mới
-        sheet.append_row([mac_address.strip().upper()])
-        print(f"[OK] Đã thêm {mac_address} vào tab TrustDevices")
+        mac_address = mac_address.strip().upper()
+        if not any(row[0].strip().upper() == mac_address for row in data if row):
+            sheet.append_row([mac_address])
+            print(f"[OK] Đã thêm {mac_address} vào tab TrustDevices")
+        else:
+            print(f"[WARNING] {mac_address} đã tồn tại trong tab TrustDevices")
     except Exception as e:
         print(f"[ERROR] Không thể thêm {mac_address} vào tab TrustDevices: {e}")
         raise
@@ -88,19 +92,25 @@ def remove_from_trusted_devices(mac_address):
         sheet = spreadsheet.worksheet("TrustDevices")
         # Lấy tất cả dữ liệu
         data = sheet.get_all_values()
-        if not data:
-            return  # Nếu sheet trống, không làm gì
+        if not data or (len(data) == 1 and not data[0]):
+            print(f"[WARNING] Tab TrustDevices trống, không có gì để xóa.")
+            return
         # Tìm hàng chứa mac_address
         mac_address = mac_address.strip().upper()
         row_to_delete = None
         for idx, row in enumerate(data, start=1):
-            if row and row[0].strip().upper() == mac_address:
+            if row and len(row) > 0 and row[0].strip().upper() == mac_address:
                 row_to_delete = idx
                 break
         # Xóa hàng nếu tìm thấy
         if row_to_delete:
             sheet.delete_rows(row_to_delete)
             print(f"[OK] Đã xóa {mac_address} khỏi tab TrustDevices")
+        else:
+            print(f"[WARNING] Không tìm thấy {mac_address} trong tab TrustDevices để xóa.")
+    except gspread.exceptions.APIError as e:
+        print(f"[ERROR] Lỗi API khi xóa {mac_address}: {e}")
+        raise
     except Exception as e:
         print(f"[ERROR] Không thể xóa {mac_address} khỏi tab TrustDevices: {e}")
         raise
@@ -122,6 +132,11 @@ def add_to_blocked_devices(mac_address):
         if not any(row[0].strip().upper() == mac_address for row in data if row):
             sheet.append_row([mac_address])
             print(f"[OK] Đã thêm {mac_address} vào tab BlockedDevices")
+        else:
+            print(f"[WARNING] {mac_address} đã tồn tại trong tab BlockedDevices")
+    except gspread.exceptions.APIError as e:
+        print(f"[ERROR] Lỗi API khi thêm {mac_address}: {e}")
+        raise
     except Exception as e:
         print(f"[ERROR] Không thể thêm {mac_address} vào tab BlockedDevices: {e}")
         raise
@@ -154,7 +169,7 @@ def get_devices():
                 timestamp = timestamp.replace(tzinfo=vn_timezone)
                 current_time = datetime.now(vn_timezone)
                 time_diff = (current_time - timestamp).total_seconds()
-                item['is_online'] = time_diff <= 60
+                item['is_online'] = time_diff <= 180
             except ValueError:
                 item['is_online'] = False
             filtered_data.append(item)

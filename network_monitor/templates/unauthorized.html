@@ -28,13 +28,11 @@
 </div>
 
 <script>
-  const updateInterval = 300000;
-  const backendUpdateInterval = 300;
-  const loadingOverlay = document.getElementById('loading-overlay');
+  const updateInterval = 180000; // Giảm từ 300000 (5 phút) xuống 180000 (3 phút)
+  const backendUpdateInterval = 180; // Giảm từ 300 giây xuống 180 giây
 
   function updateUnauthorized() {
     if (!document.hidden) {
-      loadingOverlay.style.display = 'flex';
       fetch('/unauthorized')
         .then(response => response.text())
         .then(html => {
@@ -43,10 +41,7 @@
           const newTbody = doc.querySelector('#unauthorized-table tbody');
           document.querySelector('#unauthorized-table tbody').innerHTML = newTbody.innerHTML;
         })
-        .catch(error => console.error('Error updating unauthorized devices:', error))
-        .finally(() => {
-          loadingOverlay.style.display = 'none';
-        });
+        .catch(error => console.error('Error updating unauthorized devices:', error));
     }
   }
 

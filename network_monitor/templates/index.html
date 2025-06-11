@@ -79,11 +79,9 @@
 <script>
   const updateInterval = 300000;
   const backendUpdateInterval = 300;
-  const loadingOverlay = document.getElementById('loading-overlay');
 
   function updateDevices() {
     if (!document.hidden) {
-      loadingOverlay.style.display = 'flex';
       fetch('/')
         .then(response => response.text())
         .then(html => {
@@ -92,10 +90,7 @@
           const newContainer = doc.querySelector('#devices-container');
           document.querySelector('#devices-container').innerHTML = newContainer.innerHTML;
         })
-        .catch(error => console.error('Error updating devices:', error))
-        .finally(() => {
-          loadingOverlay.style.display = 'none';
-        });
+        .catch(error => console.error('Error updating devices:', error));
     }
   }
 
@@ -112,9 +107,12 @@
   }
 
   function registerDevice(mac) {
-    loadingOverlay.style.display = 'flex';
+    console.log(`Gửi yêu cầu đăng ký cho MAC: ${mac}`);
     fetch(`/register/${mac}`, { method: 'POST' })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        return response.json();
+      })
       .then(data => {
         if (data.status === "success") {
           Swal.fire({
@@ -135,14 +133,12 @@
         }
       })
       .catch(error => {
+        console.error('Lỗi khi đăng ký:', error);
         Swal.fire({
           icon: 'error',
           title: 'Lỗi',
-          text: 'Đã xảy ra lỗi: ' + error
+          text: 'Đã xảy ra lỗi: ' + error.message
         });
-      })
-      .finally(() => {
-        loadingOverlay.style.display = 'none';
       });
   }
 
@@ -156,9 +152,12 @@
       cancelButtonText: 'Hủy'
     }).then((result) => {
       if (result.isConfirmed) {
-        loadingOverlay.style.display = 'flex';
+        console.log(`Gửi yêu cầu xóa cho MAC: ${mac}`);
         fetch(`/unregister/${mac}`, { method: 'POST' })
-          .then(response => response.json())
+          .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            return response.json();
+          })
           .then(data => {
             if (data.status === "success") {
               Swal.fire({
@@ -179,14 +178,12 @@
             }
           })
           .catch(error => {
+            console.error('Lỗi khi xóa:', error);
             Swal.fire({
               icon: 'error',
               title: 'Lỗi',
-              text: 'Đã xảy ra lỗi: ' + error
+              text: 'Đã xảy ra lỗi: ' + error.message
             });
-          })
-          .finally(() => {
-            loadingOverlay.style.display = 'none';
           });
       }
     });
@@ -202,9 +199,12 @@
       cancelButtonText: 'Hủy'
     }).then((result) => {
       if (result.isConfirmed) {
-        loadingOverlay.style.display = 'flex';
+        console.log(`Gửi yêu cầu block cho MAC: ${mac}`);
         fetch(`/block/${mac}`, { method: 'POST' })
-          .then(response => response.json())
+          .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            return response.json();
+          })
           .then(data => {
             if (data.status === "success") {
               Swal.fire({
@@ -225,24 +225,22 @@
             }
           })
           .catch(error => {
+            console.error('Lỗi khi block:', error);
             Swal.fire({
               icon: 'error',
               title: 'Lỗi',
-              text: 'Đã xảy ra lỗi: ' + error
+              text: 'Đã xảy ra lỗi: ' + error.message
             });
-          })
-          .finally(() => {
-            loadingOverlay.style.display = 'none';
           });
       }
     });
   }
 
-  updateDevices();
-  scheduleNextUpdate();
-
   function showHistory(mac) {
     window.location.href = `/device_history/${mac}`;
   }
+
+  updateDevices();
+  scheduleNextUpdate();
 </script>
 {% endblock %}

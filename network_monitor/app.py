@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from sheets import get_data_from_sheet, get_devices, get_network_stats, get_unauthorized_devices, get_security_logs, get_system_logs, add_to_trusted_devices, remove_from_trusted_devices, add_to_blocked_devices
 
 app = Flask(__name__)
@@ -57,7 +57,7 @@ def register_device(mac):
         add_to_trusted_devices(mac)
         return jsonify({"status": "success", "message": f"Đã đăng ký thiết bị {mac}"})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": f"Đã xảy ra lỗi khi đăng ký: {str(e)}"}), 500
 
 # Route để xóa một thiết bị khỏi danh sách đăng ký (TrustDevices)
 @app.route('/unregister/<mac>', methods=['POST'])
@@ -66,7 +66,7 @@ def unregister_device(mac):
         remove_from_trusted_devices(mac)
         return jsonify({"status": "success", "message": f"Đã xóa thiết bị {mac} khỏi danh sách đăng ký"})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": f"Đã xảy ra lỗi khi xóa: {str(e)}"}), 500
 
 # Route để chặn một thiết bị (thêm vào BlockedDevices)
 @app.route('/block/<mac>', methods=['POST'])
@@ -75,7 +75,7 @@ def block_device(mac):
         add_to_blocked_devices(mac)
         return jsonify({"status": "success", "message": f"Đã chặn thiết bị {mac}"})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": f"Đã xảy ra lỗi khi chặn: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

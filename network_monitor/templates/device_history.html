@@ -75,13 +75,11 @@
     }
   });
 
-  const updateInterval = 300000;
-  const backendUpdateInterval = 300;
-  const loadingOverlay = document.getElementById('loading-overlay');
+  const updateInterval = 180000; // Giảm từ 300000 (5 phút) xuống 180000 (3 phút)
+  const backendUpdateInterval = 180; // Giảm từ 300 giây xuống 180 giây
 
   function updateHistory() {
     if (!document.hidden) {
-      loadingOverlay.style.display = 'flex';
       fetch(`/device_history/{{ mac }}`)
         .then(response => response.text())
         .then(html => {
@@ -90,10 +88,7 @@
           const newTbody = doc.querySelector('#history-table tbody');
           document.querySelector('#history-table tbody').innerHTML = newTbody.innerHTML;
         })
-        .catch(error => console.error('Error updating history:', error))
-        .finally(() => {
-          loadingOverlay.style.display = 'none';
-        });
+        .catch(error => console.error('Error updating history:', error));
     }
   }
 

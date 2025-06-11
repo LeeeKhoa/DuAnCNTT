@@ -26,6 +26,7 @@
           <table class="table table-bordered" id="security-logs-table">
             <thead>
               <tr>
+                <th>MAC Address</th>
                 <th>Timestamp</th>
                 <th>Log Type</th>
                 <th>Source</th>
@@ -38,6 +39,7 @@
             <tbody>
               {% for log in logs %}
               <tr>
+                <td>{{ log.mac_address }}</td>
                 <td>{{ log.timestamp }}</td>
                 <td>{{ log.log_type }}</td>
                 <td>{{ log.source }}</td>
@@ -57,9 +59,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const updateInterval = 300000;
-  const backendUpdateInterval = 300;
-  const loadingOverlay = document.getElementById('loading-overlay');
+  const updateInterval = 180000; // Giảm từ 300000 (5 phút) xuống 180000 (3 phút)
+  const backendUpdateInterval = 180; // Giảm từ 300 giây xuống 180 giây
 
   const eventLabels = {
     4634: "Logoff",
@@ -138,7 +139,6 @@
 
   function updateSecurityLogs() {
     if (!document.hidden) {
-      loadingOverlay.style.display = 'flex';
       fetch('/security_logs')
         .then(response => response.text())
         .then(html => {
@@ -151,15 +151,14 @@
           const logs = Array.from(rows).map(row => {
             const cells = row.querySelectorAll('td');
             return {
-              event_id: parseInt(cells[3].textContent.trim())
+              mac_address: cells[0].textContent.trim(),
+              timestamp: cells[1].textContent.trim(),
+              event_id: parseInt(cells[4].textContent.trim())
             };
           });
           drawEventChart(logs);
         })
-        .catch(error => console.error('Error updating security logs:', error))
-        .finally(() => {
-          loadingOverlay.style.display = 'none';
-        });
+        .catch(error => console.error('Error updating security logs:', error));
     }
   }
 
