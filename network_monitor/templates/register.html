@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đăng ký Tài khoản</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='AdminLTE-3.2.0/dist/css/adminlte.min.css') }}">
+</head>
+<body class="hold-transition login-page">
+  <div class="login-box">
+    <div class="card">
+      <div class="card-body login-card-body">
+        <h3 class="login-box-msg">Đăng ký Tài khoản</h3>
+        <form id="registerForm" action="/register" method="post">
+          <div class="input-group mb-3">
+            <input type="text" class="form-control" name="username" placeholder="Tên người dùng" required>
+            <div class="input-group-append">
+              <div class="input-group-text"><i class="fas fa-user"></i></div>
+            </div>
+          </div>
+          <div class="input-group mb-3">
+            <input type="password" class="form-control" name="password" placeholder="Mật khẩu" required>
+            <div class="input-group-append">
+              <div class="input-group-text"><i class="fas fa-lock"></i></div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Đăng ký</button>
+        </form>
+        <p class="mt-3 mb-1"><a href="{{ url_for('login') }}">Đã có tài khoản? Đăng nhập</a></p>
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='AdminLTE-3.2.0/plugins/jquery/jquery.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='AdminLTE-3.2.0/plugins/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script>
+    $('#registerForm').on('submit', function(e) {
+      e.preventDefault();
+      $.ajax({
+        url: $(this).attr('action'),
+        type: 'POST',
+        data: $(this).serialize(),
+        success: function(response) {
+          if (response.status === 'success') {
+            Swal.fire({
+              icon: 'success',
+              title: 'Thành công',
+              text: response.message,
+              timer: 2000,
+              showConfirmButton: false
+            }).then(() => {
+              window.location.href = '/login';
+            });
+          } else {
+            Swal.fire({
+              icon: 'error',
+              title: 'Lỗi',
+              text: response.message
+            });
+          }
+        },
+        error: function(xhr) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Lỗi',
+            text: 'Đã xảy ra lỗi khi đăng ký'
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% if 'username' not in session %}
+  <div class="alert alert-warning" role="alert">
+    Vui lòng <a href="{{ url_for('login') }}" class="alert-link">đăng nhập</a> để tiếp tục.
+  </div>
+{% else %}
 <div class="row mt-4">
   <div class="col-md-4">
     <div class="info-box">
@@ -56,13 +61,14 @@
             <button class="btn btn-info btn-sm" onclick="showHistory('{{ device.mac_address }}')">
               <i class="fas fa-chart-line"></i> View History
             </button>
-            {% if device.is_trusted %}
+            {% if is_admin and device.is_trusted %}
             <button class="btn btn-danger btn-sm" onclick="unregisterDevice('{{ device.mac_address }}')">
               <i class="fas fa-trash"></i> Xóa
             </button>
-            {% else %}
+            {% endif %}
+            {% if is_admin and not device.is_trusted %}
             <button class="btn btn-success btn-sm" onclick="registerDevice('{{ device.mac_address }}')">
-              <i class="fas fa-check"></i> Đăng ký
+              <i class="fas fa-check"></i> Đồng ý đăng ký
             </button>
             <button class="btn btn-warning btn-sm" onclick="blockDevice('{{ device.mac_address }}')">
               <i class="fas fa-ban"></i> Block
@@ -75,10 +81,11 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <script>
-  const updateInterval = 300000;
-  const backendUpdateInterval = 300;
+  const updateInterval = 180000;
+  const backendUpdateInterval = 180;
 
   function updateDevices() {
     if (!document.hidden) {

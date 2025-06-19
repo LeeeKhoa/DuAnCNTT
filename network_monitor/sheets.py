@@ -8,6 +8,9 @@ try:
     creds = Credentials.from_service_account_file('credentials.json', scopes=scope)
     client = gspread.authorize(creds)
     spreadsheet = client.open("EventLogData")
+    users_sheet = spreadsheet.worksheet("Users")  # Sheet lưu tài khoản
+    trust_devices_sheet = spreadsheet.worksheet("TrustDevices")  # Sheet lưu thiết bị tin cậy
+    blocked_devices_sheet = spreadsheet.worksheet("BlockedDevices")  # Sheet lưu thiết bị bị chặn
 except Exception as e:
     print(f"[ERROR] Không thể kết nối Google Sheets: {e}")
     raise
@@ -69,19 +72,21 @@ def get_blocked_devices():
 # Hàm thêm một mac_address vào tab TrustDevices
 def add_to_trusted_devices(mac_address):
     try:
-        sheet = spreadsheet.worksheet("TrustDevices")
         # Lấy tất cả dữ liệu hiện có
-        data = sheet.get_all_values()
+        data = trust_devices_sheet.get_all_values()
         # Nếu sheet trống, thêm tiêu đề
         if not data or (len(data) == 1 and not data[0]):
-            sheet.append_row(['mac_address'])
+            trust_devices_sheet.append_row(['mac_address'])
         # Thêm mac_address mới
         mac_address = mac_address.strip().upper()
         if not any(row[0].strip().upper() == mac_address for row in data if row):
-            sheet.append_row([mac_address])
+            trust_devices_sheet.append_row([mac_address])
             print(f"[OK] Đã thêm {mac_address} vào tab TrustDevices")
         else:
             print(f"[WARNING] {mac_address} đã tồn tại trong tab TrustDevices")
+    except gspread.exceptions.APIError as e:
+        print(f"[ERROR] Lỗi API khi thêm {mac_address}: {e}")
+        raise
     except Exception as e:
         print(f"[ERROR] Không thể thêm {mac_address} vào tab TrustDevices: {e}")
         raise
@@ -89,9 +94,8 @@ def add_to_trusted_devices(mac_address):
 # Hàm xóa một mac_address khỏi tab TrustDevices
 def remove_from_trusted_devices(mac_address):
     try:
-        sheet = spreadsheet.worksheet("TrustDevices")
         # Lấy tất cả dữ liệu
-        data = sheet.get_all_values()
+        data = trust_devices_sheet.get_all_values()
         if not data or (len(data) == 1 and not data[0]):
             print(f"[WARNING] Tab TrustDevices trống, không có gì để xóa.")
             return
@@ -104,7 +108,7 @@ def remove_from_trusted_devices(mac_address):
                 break
         # Xóa hàng nếu tìm thấy
         if row_to_delete:
-            sheet.delete_rows(row_to_delete)
+            trust_devices_sheet.delete_rows(row_to_delete)
             print(f"[OK] Đã xóa {mac_address} khỏi tab TrustDevices")
         else:
             print(f"[WARNING] Không tìm thấy {mac_address} trong tab TrustDevices để xóa.")
@@ -120,7 +124,7 @@ def add_to_blocked_devices(mac_address):
     try:
         # Kiểm tra nếu tab BlockedDevices chưa tồn tại, thì tạo mới
         try:
-            sheet = spreadsheet.worksheet("BlockedDevices")
+            sheet = blocked_devices_sheet
         except gspread.exceptions.WorksheetNotFound:
             sheet = spreadsheet.add_worksheet(title="BlockedDevices", rows="100", cols="1")
             sheet.append_row(['mac_address'])
@@ -215,3 +219,11 @@ def get_security_logs(max_rows=50):
 # Hàm lấy SystemLog
 def get_system_logs(max_rows=50):
     return get_data_from_sheet("SystemLog", max_rows)
+
+# Hàm kiểm tra vai trò admin
+def check_admin_role(username):
+    users = users_sheet.get_all_records()
+    for user in users:
+        if user['username'] == username and user['role'] == 'admin':
+            return True
+    return False
