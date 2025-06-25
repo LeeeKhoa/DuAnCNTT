@@ -17,8 +17,10 @@
     <div class="tab-content" id="securityLogsTabContent">
       <div class="tab-pane fade show active" id="chart" role="tabpanel">
         <div class="mt-3">
-          <h4>Tần suất xuất hiện của các sự kiện bảo mật</h4>
-          <canvas id="eventChart" width="400" height="200"></canvas>
+          <h4>Tỷ lệ các sự kiện bảo mật</h4>
+          <div style="max-width: 500px; margin: 0 auto;">
+            <canvas id="eventChart" width="400" height="400"></canvas>
+          </div>
         </div>
       </div>
       <div class="tab-pane fade" id="logs" role="tabpanel">
@@ -59,8 +61,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const updateInterval = 180000; // Giảm từ 300000 (5 phút) xuống 180000 (3 phút)
-  const backendUpdateInterval = 180; // Giảm từ 300 giây xuống 180 giây
+  const updateInterval = 180000;
+  const backendUpdateInterval = 180;
 
   const eventLabels = {
     4634: "Logoff",
@@ -71,7 +73,6 @@
     4726: "Delete user",
     4732: "Add to group",
     4733: "Remove from group",
-    4648: "Login RDP",
     4625: "Brute force login fail"
   };
 
@@ -80,6 +81,7 @@
 
   function drawEventChart(logs) {
     const eventCounts = {};
+    let totalRelevantEvents = 0;
     Object.keys(eventLabels).forEach(eventId => {
       eventCounts[eventId] = 0;
     });
@@ -88,25 +90,44 @@
       const eventId = log.event_id.toString();
       if (eventId in eventCounts) {
         eventCounts[eventId]++;
+        totalRelevantEvents++;
       }
     });
 
     const labels = Object.keys(eventLabels).map(eventId => eventLabels[eventId]);
     const data = Object.keys(eventLabels).map(eventId => eventCounts[eventId]);
+    const percentages = data.map(count => totalRelevantEvents > 0 ? (count / totalRelevantEvents * 100).toFixed(2) : 0);
+
+    if (totalRelevantEvents === 0) {
+      if (eventChart) {
+        eventChart.destroy();
+        eventChart = null;
+      }
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "#999";
+      ctx.textAlign = "center";
+      ctx.fillText("Không có sự kiện bảo mật nào được ghi nhận.", ctx.canvas.width / 2, ctx.canvas.height / 2);
+      return;
+    }
 
     if (eventChart) {
       eventChart.destroy();
     }
 
     eventChart = new Chart(ctx, {
-      type: 'bar',
+      type: 'pie',  // Thay đổi từ 'bar' thành 'pie'
       data: {
         labels: labels,
         datasets: [{
-          label: 'Số lần xuất hiện',
           data: data,
-          backgroundColor: 'rgba(46, 204, 113, 0.6)',
-          borderColor: 'rgba(46, 204, 113, 1)',
+          backgroundColor: [
+            '#FF6B6B', '#4ECDC4', '#FFD93D', '#6A0572', '#FF8C42', '#1A535C',
+            '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5'
+          ],
+          borderColor: [
+            '#FF6B6B', '#4ECDC4', '#FFD93D', '#6A0572', '#FF8C42', '#1A535C',
+            '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5'
+          ],
           borderWidth: 1
         }]
       },
@@ -115,20 +136,15 @@
           duration: 1000,
           easing: 'easeOutQuad'
         },
-        scales: {
-          x: { title: { display: true, text: 'Sự kiện bảo mật' } },
-          y: { 
-            title: { display: true, text: 'Số lần xuất hiện' },
-            beginAtZero: true,
-            ticks: { stepSize: 1 }
-          }
-        },
         plugins: {
-          legend: { display: true },
+          legend: { display: true, position: 'top' },
           tooltip: {
             callbacks: {
               label: function(context) {
-                return `${context.dataset.label}: ${context.raw}`;
+                const label = context.label || '';
+                const value = context.raw || 0;
+                const percentage = percentages[context.dataIndex];
+                return `${label}: ${value} (${percentage}%)`;
               }
             }
           }

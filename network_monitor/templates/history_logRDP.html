@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="content-header">
+  <div class="container-fluid">
+    <h1 class="m-0">History Log RDP</h1>
+  </div>
+</div>
+<div class="content">
+  <div class="container-fluid">
+    <div class="card">
+      <div class="card-body">
+        <table class="table table-bordered table-striped">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Log Type</th>
+              <th>Source</th>
+              <th>Event ID</th>
+              <th>Type</th>
+              <th>Category</th>
+              <th>Message</th>
+              <th>MAC Address</th>
+              <th>RDP User</th>
+              <th>RDP Domain</th>
+              <th>RDP Source IP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in logs %}
+            <tr>
+              <td>{{ log.timestamp }}</td>
+              <td>{{ log.log_type }}</td>
+              <td>{{ log.source }}</td>
+              <td>{{ log.event_id }}</td>
+              <td>{{ log.type }}</td>
+              <td>{{ log.category }}</td>
+              <td>{{ log.message }}</td>
+              <td>{{ log.mac_address }}</td>
+              <td>{{ log.rdp_user }}</td>
+              <td>{{ log.rdp_domain }}</td>
+              <td>{{ log.rdp_source_ip }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

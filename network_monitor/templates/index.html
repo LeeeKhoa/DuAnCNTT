@@ -56,6 +56,9 @@
           title="MAC: {{ device.mac_address }} - Trạng thái: {{ 'Online' if device.is_online else 'Offline' }} - {% if device.is_trusted %}Đã đăng ký{% else %}Chưa đăng ký{% endif %}"></i>
         <div class="mt-2">
           <p><strong>MAC:</strong> {{ device.mac_address }}</p>
+          {% if device.device_name %}
+          <p><strong>Tên:</strong> {{ device.device_name }}</p>
+          {% endif %}
           <p><strong>Trạng thái:</strong> {{ 'Online' if device.is_online else 'Offline' }}</p>
           <div class="d-flex justify-content-center gap-2 flex-wrap">
             <button class="btn btn-info btn-sm" onclick="showHistory('{{ device.mac_address }}')">
@@ -121,17 +124,56 @@
         return response.json();
       })
       .then(data => {
-        if (data.status === "success") {
+        if (data.status === "prompt") {
           Swal.fire({
-            icon: 'success',
-            title: 'Thành công',
-            text: data.message,
-            showConfirmButton: false,
-            timer: 1500
-          }).then(() => {
-            updateDevices();
+            title: 'Nhập tên thiết bị',
+            input: 'text',
+            inputPlaceholder: 'Nhập tên (ví dụ: PC_Office1)',
+            showCancelButton: true,
+            confirmButtonText: 'Lưu',
+            cancelButtonText: 'Hủy',
+            inputValidator: (value) => {
+              if (!value) return 'Tên thiết bị không được để trống!'
+            }
+          }).then((result) => {
+            if (result.isConfirmed) {
+              const device_name = result.value;
+              fetch('/save_device_name', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mac: mac, device_name: device_name })
+              })
+              .then(response => response.json())
+              .then(data => {
+                if (data.status === "success") {
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'Thành công',
+                    text: data.message,
+                    showConfirmButton: false,
+                    timer: 1500
+                  }).then(() => {
+                    updateDevices();
+                  });
+                } else {
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi',
+                    text: data.message
+                  });
+                }
+              })
+              .catch(error => {
+                console.error('Lỗi khi lưu tên:', error);
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Lỗi',
+                  text: 'Đã xảy ra lỗi: ' + error.message
+                });
+              });
+            }
           });
-        } else {
+        } else if (data.status === "error") {
           Swal.fire({
             icon: 'error',
             title: 'Lỗi',

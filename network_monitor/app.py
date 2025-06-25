@@ -1,5 +1,5 @@
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
-from sheets import get_devices, get_network_stats, get_unauthorized_devices, get_security_logs, get_system_logs, add_to_trusted_devices, remove_from_trusted_devices, add_to_blocked_devices, check_admin_role
+from sheets import get_devices, get_unauthorized_devices, get_security_logs, get_system_logs, add_to_trusted_devices, remove_from_trusted_devices, add_to_blocked_devices, check_admin_role, get_rdp_logs
 from dotenv import load_dotenv
 import os
 import hashlib
@@ -32,14 +32,14 @@ def devices():
     is_admin = check_admin_role(session['username'])
     return render_template('devices.html', devices=devices, is_admin=is_admin)
 
-# Route cho trang tốc độ mạng
-@app.route('/network_stats')
-def network_stats():
+# Route cho trang lịch sử log RDP
+@app.route('/history_logRDP')
+def history_logRDP():
     if 'username' not in session:
         return redirect(url_for('login'))
-    stats = get_network_stats()
+    logs = get_rdp_logs()
     is_admin = check_admin_role(session['username'])
-    return render_template('network_stats.html', stats=stats, is_admin=is_admin)
+    return render_template('history_logRDP.html', logs=logs, is_admin=is_admin)
 
 # Route cho trang thiết bị lạ
 @app.route('/unauthorized')
@@ -85,22 +85,14 @@ def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        # Cố định role là "user", không cho phép tạo admin qua giao diện
-        role = "user"
-        # Mã hóa password bằng MD5 (lưu ý: dùng bcrypt trong thực tế)
-        hashed_password = hashlib.md5(password.encode()).hexdigest()
-        # Kiểm tra username đã tồn tại chưa
+        role = request.form['role']
         from sheets import users_sheet
+        hashed_password = hashlib.md5(password.encode()).hexdigest()
         users = users_sheet.get_all_records()
         if any(user['username'] == username for user in users):
             return jsonify({"status": "error", "message": "Tên người dùng đã tồn tại"}), 400
-        # Thêm tài khoản mới
         users_sheet.append_row([username, hashed_password, role])
-        # Trả về JSON để client xử lý thông báo
-        return jsonify({
-            "status": "success",
-            "message": f"Đăng ký thành công cho {username} với vai trò {role}"
-        })
+        return jsonify({"status": "success", "message": f"Đăng ký thành công cho {username} với vai trò {role}"})
     return render_template('register.html')
 
 # Route để đăng nhập
@@ -125,17 +117,37 @@ def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
 
-# Route để thêm một thiết bị vào danh sách đăng ký (TrustDevices)
+# Route để thêm một thiết bị vào danh sách đăng ký (TrustDevices) với tên
 @app.route('/register/<mac>', methods=['POST'])
 def register_device(mac):
     if not check_admin_role(session.get('username', '')):
         return jsonify({"status": "error", "message": "Bạn không có quyền thực hiện hành động này"}), 403
     try:
-        from sheets import add_to_trusted_devices
-        add_to_trusted_devices(mac)
-        return jsonify({"status": "success", "message": f"Đã đăng ký thiết bị {mac}"})
+        from sheets import trust_devices_sheet
+        mac = mac.strip().upper()
+        data = trust_devices_sheet.get_all_values()
+        if not any(row[0].strip().upper() == mac for row in data if row):
+            # Mở popup để nhập tên thiết bị
+            return jsonify({"status": "prompt", "message": "Vui lòng nhập tên cho thiết bị", "mac": mac})
+        return jsonify({"status": "error", "message": f"Thiết bị {mac} đã tồn tại"}), 400
     except Exception as e:
         return jsonify({"status": "error", "message": f"Đã xảy ra lỗi khi đăng ký: {str(e)}"}), 500
+
+# Route để lưu tên thiết bị sau khi nhập
+@app.route('/save_device_name', methods=['POST'])
+def save_device_name():
+    if not check_admin_role(session.get('username', '')):
+        return jsonify({"status": "error", "message": "Bạn không có quyền thực hiện hành động này"}), 403
+    try:
+        data = request.get_json()
+        mac = data.get('mac').strip().upper()
+        device_name = data.get('device_name', '').strip()
+        from sheets import trust_devices_sheet, add_to_trusted_devices
+        # Kiểm tra và thêm thiết bị với tên
+        add_to_trusted_devices(mac, device_name)  # Sử dụng hàm đã cập nhật
+        return jsonify({"status": "success", "message": f"Đã đăng ký thiết bị {mac} với tên {device_name}"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Đã xảy ra lỗi khi lưu tên: {str(e)}"}), 500
 
 # Route để xóa một thiết bị khỏi danh sách đăng ký (TrustDevices)
 @app.route('/unregister/<mac>', methods=['POST'])

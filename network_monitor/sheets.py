@@ -41,7 +41,10 @@ def get_data_from_sheet(sheet_name, max_rows=50):
                 'event_id': int(item.get('event_id', 0)),
                 'type': item.get('type', ''),
                 'category': item.get('category', ''),
-                'message': item.get('message', '')
+                'message': item.get('message', ''),
+                'rdp_user': item.get('rdp_user', ''),
+                'rdp_domain': item.get('rdp_domain', ''),
+                'rdp_source_ip': item.get('rdp_source_ip', '')
             }
             standardized_data.append(standardized_item)
         return standardized_data
@@ -52,12 +55,12 @@ def get_data_from_sheet(sheet_name, max_rows=50):
 # Hàm đọc danh sách MAC address từ tab TrustDevices
 def get_trusted_devices():
     try:
-        data = get_data_from_sheet("TrustDevices")
-        trusted_macs = [item['mac_address'].strip().upper() for item in data if 'mac_address' in item and item['mac_address']]
-        return set(trusted_macs)
+        data = trust_devices_sheet.get_all_records()
+        trusted_devices = {item['mac_address'].strip().upper(): item.get('device_name', '') for item in data if 'mac_address' in item and item['mac_address']}
+        return trusted_devices  # Trả về dict với mac và device_name
     except Exception as e:
         print(f"[ERROR] Không thể đọc dữ liệu từ tab TrustDevices: {e}")
-        return set()
+        return {}
 
 # Hàm đọc danh sách MAC address từ tab BlockedDevices
 def get_blocked_devices():
@@ -70,18 +73,18 @@ def get_blocked_devices():
         return set()
 
 # Hàm thêm một mac_address vào tab TrustDevices
-def add_to_trusted_devices(mac_address):
+def add_to_trusted_devices(mac_address, device_name=''):
     try:
         # Lấy tất cả dữ liệu hiện có
         data = trust_devices_sheet.get_all_values()
         # Nếu sheet trống, thêm tiêu đề
         if not data or (len(data) == 1 and not data[0]):
-            trust_devices_sheet.append_row(['mac_address'])
-        # Thêm mac_address mới
+            trust_devices_sheet.append_row(['mac_address', 'device_name'])
+        # Thêm mac_address và device_name mới
         mac_address = mac_address.strip().upper()
         if not any(row[0].strip().upper() == mac_address for row in data if row):
-            trust_devices_sheet.append_row([mac_address])
-            print(f"[OK] Đã thêm {mac_address} vào tab TrustDevices")
+            trust_devices_sheet.append_row([mac_address, device_name])
+            print(f"[OK] Đã thêm {mac_address} với tên {device_name} vào tab TrustDevices")
         else:
             print(f"[WARNING] {mac_address} đã tồn tại trong tab TrustDevices")
     except gspread.exceptions.APIError as e:
@@ -156,7 +159,7 @@ def get_devices():
     # Định nghĩa múi giờ +07:00 (Việt Nam)
     vn_timezone = timezone(timedelta(hours=7))
     # Lấy danh sách thiết bị tin cậy và bị chặn
-    trusted_macs = get_trusted_devices()
+    trusted_devices = get_trusted_devices()  # Lấy dict mac -> device_name
     blocked_macs = get_blocked_devices()
     for item in sorted_data:
         mac = item['mac_address'].strip().upper()
@@ -165,8 +168,9 @@ def get_devices():
             # Bỏ qua thiết bị nếu bị chặn
             if mac in blocked_macs:
                 continue
-            # Thêm thông tin trạng thái đăng ký
-            item['is_trusted'] = mac in trusted_macs
+            # Thêm thông tin trạng thái đăng ký và tên thiết bị
+            item['is_trusted'] = mac in trusted_devices
+            item['device_name'] = trusted_devices.get(mac, '')  # Lấy device_name từ trusted_devices
             # Tính trạng thái online/offline dựa trên timestamp
             try:
                 timestamp = datetime.strptime(item['timestamp'], '%Y-%m-%d %H:%M:%S')
@@ -179,16 +183,11 @@ def get_devices():
             filtered_data.append(item)
     return filtered_data
 
-# Hàm lấy thông số mạng
-def get_network_stats(max_rows=50):
-    data = get_data_from_sheet("SNMPData", max_rows)
-    return sorted(data, key=lambda x: x['timestamp'], reverse=True)
-
 # Hàm phát hiện thiết bị lạ (đã lọc trùng lặp dựa trên mac_address)
 def get_unauthorized_devices():
     data = get_data_from_sheet("SNMPData")
     # Lấy danh sách MAC address từ tab TrustDevices và BlockedDevices
-    trusted_macs = get_trusted_devices()
+    trusted_macs = get_trusted_devices().keys()  # Lấy các mac từ dict
     blocked_macs = get_blocked_devices()
     unauthorized = []
     # Sắp xếp theo timestamp để bản ghi mới nhất lên đầu
@@ -219,6 +218,10 @@ def get_security_logs(max_rows=50):
 # Hàm lấy SystemLog
 def get_system_logs(max_rows=50):
     return get_data_from_sheet("SystemLog", max_rows)
+
+# Hàm lấy RDPLog
+def get_rdp_logs(max_rows=50):
+    return get_data_from_sheet("RDPLog", max_rows)
 
 # Hàm kiểm tra vai trò admin
 def check_admin_role(username):

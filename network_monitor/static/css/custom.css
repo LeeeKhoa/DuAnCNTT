@@ -76,6 +76,11 @@ body {
   transform: scale(1.2);
 }
 
+.table {
+  table-layout: fixed; /* Đảm bảo các cột có chiều rộng cố định */
+  width: 100%;
+}
+
 .table thead th {
   background-color: #34495e;
   color: #fff;
@@ -90,6 +95,38 @@ body {
 
 .table td {
   font-size: 0.95rem;
+  vertical-align: middle; /* Căn giữa nội dung theo chiều dọc */
+}
+
+/* Container cho bảng để hỗ trợ cuộn ngang */
+.card-body {
+  overflow-x: auto; /* Thêm thanh cuộn ngang nếu bảng quá rộng */
+}
+
+/* Điều chỉnh các cột trong bảng */
+.table td:nth-child(3), /* Cột Source trong history_logRDB */
+.table td:nth-child(7), /* Cột Message trong history_logRDB */
+.table td:nth-child(8) { /* Cột Message trong SystemLog, SecurityLog */
+  max-width: 150px; /* Chiều rộng tối đa cho các cột dài */
+  word-break: break-word; /* Ngắt từ khi cần */
+  overflow-wrap: break-word; /* Ngắt từ dài */
+  white-space: normal; /* Cho phép ngắt dòng */
+}
+
+/* Đặt chiều rộng cố định cho các cột khác để cân đối */
+.table th:nth-child(1), .table td:nth-child(1), /* Timestamp */
+.table th:nth-child(2), .table td:nth-child(2), /* Log Type */
+.table th:nth-child(4), .table td:nth-child(4), /* Event ID */
+.table th:nth-child(5), .table td:nth-child(5), /* Type */
+.table th:nth-child(6), .table td:nth-child(6), /* Category */
+.table th:nth-child(8), .table td:nth-child(8), /* MAC Address */
+.table th:nth-child(9), .table td:nth-child(9), /* RDP User */
+.table th:nth-child(10), .table td:nth-child(10), /* RDP Domain */
+.table th:nth-child(11), .table td:nth-child(11) { /* RDP Source IP */
+  max-width: 120px; /* Chiều rộng tối đa cho các cột khác */
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -104,14 +141,6 @@ h1, h2, h3, h4, h5, h6 {
 
 p {
   margin-bottom: 0.75rem;
-}
-
-/* Điều chỉnh cột Message trong bảng */
-.table td:nth-child(8) { /* Cột Message là cột thứ 8 trong SystemLog */
-  max-width: 200px; /* Đặt chiều rộng tối đa */
-  word-break: break-word; /* Ngắt từ khi cần */
-  overflow-wrap: break-word; /* Ngắt từ dài */
-  white-space: normal; /* Cho phép ngắt dòng */
 }
 
 /* Dark Mode */
@@ -184,8 +213,22 @@ body.fade-out {
     height: 300px !important;
   }
 
-  .table td:nth-child(8) {
-    max-width: 150px; /* Giảm chiều rộng trên mobile */
+  .table td:nth-child(3), /* Source */
+  .table td:nth-child(7), /* Message */
+  .table td:nth-child(8) { /* Message trong SystemLog, SecurityLog */
+    max-width: 120px; /* Tăng chiều rộng trên mobile để tránh ngắt dòng quá ngắn */
+  }
+
+  .table th:nth-child(1), .table td:nth-child(1), /* Timestamp */
+  .table th:nth-child(2), .table td:nth-child(2), /* Log Type */
+  .table th:nth-child(4), .table td:nth-child(4), /* Event ID */
+  .table th:nth-child(5), .table td:nth-child(5), /* Type */
+  .table th:nth-child(6), .table td:nth-child(6), /* Category */
+  .table th:nth-child(8), .table td:nth-child(8), /* MAC Address */
+  .table th:nth-child(9), .table td:nth-child(9), /* RDP User */
+  .table th:nth-child(10), .table td:nth-child(10), /* RDP Domain */
+  .table th:nth-child(11), .table td:nth-child(11) { /* RDP Source IP */
+    max-width: 100px; /* Tăng chiều rộng để nội dung rõ ràng hơn */
   }
 }
 
@@ -204,7 +247,21 @@ body.fade-out {
     width: 100%;
   }
 
-  .table td:nth-child(8) {
-    max-width: 100px; /* Giảm thêm trên mobile nhỏ */
+  .table td:nth-child(3), /* Source */
+  .table td:nth-child(7), /* Message */
+  .table td:nth-child(8) { /* Message trong SystemLog, SecurityLog */
+    max-width: 100px; /* Đảm bảo cột dài có không gian đủ */
+  }
+
+  .table th:nth-child(1), .table td:nth-child(1), /* Timestamp */
+  .table th:nth-child(2), .table td:nth-child(2), /* Log Type */
+  .table th:nth-child(4), .table td:nth-child(4), /* Event ID */
+  .table th:nth-child(5), .table td:nth-child(5), /* Type */
+  .table th:nth-child(6), .table td:nth-child(6), /* Category */
+  .table th:nth-child(8), .table td:nth-child(8), /* MAC Address */
+  .table th:nth-child(9), .table td:nth-child(9), /* RDP User */
+  .table th:nth-child(10), .table td:nth-child(10), /* RDP Domain */
+  .table th:nth-child(11), .table td:nth-child(11) { /* RDP Source IP */
+    max-width: 80px; /* Tăng nhẹ để tránh ngắt dòng quá ngắn */
   }
 }
