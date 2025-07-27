@@ -253,7 +253,7 @@ class SNMPMonitor:
         return cpu_loads
 
     def find_interface(self, keywords=["Intel", "MediaTek", "Ethernet", "Wi-Fi"]):
-        """Tìm chỉ số giao diện mạng với từ khóa mở rộng"""
+        """Tìm card mạng bằng key word"""
         try:
             for (_, _, _, varBinds) in nextCmd(
                 SnmpEngine(),
@@ -275,7 +275,7 @@ class SNMPMonitor:
         return None
 
     def find_physical_memory(self):
-        """Tìm chỉ số bộ nhớ vật lý"""
+        """Tìm chỉ số RAM"""
         try:
             for (_, _, _, varBinds) in nextCmd(
                 SnmpEngine(),
@@ -514,7 +514,7 @@ class SNMPMonitor:
             net_spike = (net_in > net_threshold) or (net_out > net_threshold)
             
             if net_spike:
-                msg = (f"🌐 *CẢNH BÁO LƯLƯỢNG MẠNG*\n"
+                msg = (f"🌐 *CẢNH BÁO LƯU LƯỢNG MẠNG*\n"
                        f"Thiết bị `{self.ip}` có lưu lượng mạng cao bất thường!\n"
                        f"Vào: {net_in:.2f} Mbps | Ra: {net_out:.2f} Mbps\n"
                        f"Ngưỡng: {ALERT_CONFIG['network']['threshold_percent']}% của {link_speed_mbps:.2f} Mbps\n"
@@ -543,7 +543,7 @@ class SNMPMonitor:
                 )
 
     def collect_all_metrics(self):
-        """Phương thức chính để thu thập tất cả số liệu với xử lý lỗi toàn diện"""
+        """Phương thức chính để thu thập tất cả số liệu"""
         now = datetime.datetime.now()
         now_str = now.strftime('%Y-%m-%d %H:%M:%S')
         
@@ -636,8 +636,7 @@ class SNMPMonitor:
             return False
 
 def discover_snmp_hosts(subnet=None, community=None, timeout=1.0):
-    """Khám phá thiết bị SNMP trong mạng với hiệu suất tối ưu"""
-    # Sử dụng cấu hình mặc định từ Config nếu không được cung cấp
+    """Quét các thiết bị SNMP trong mạng"""
     if subnet is None:
         subnet = Config.SNMP_SUBNET
     if community is None:

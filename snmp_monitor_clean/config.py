@@ -1,4 +1,3 @@
-# config.py - Quản lý cấu hình tập trung cho SNMP Monitor
 import os
 from dotenv import load_dotenv
 
@@ -21,7 +20,7 @@ class Config:
     GMAIL_PASSWORD = os.getenv('GMAIL_PASSWORD')
     
     # Cấu hình mạng
-    SNMP_SUBNET = os.getenv('SNMP_SUBNET', '192.168.1.0/24')
+    SNMP_SUBNET = os.getenv('SNMP_SUBNET', '172.20.10.0/24')
     SNMP_COMMUNITY = os.getenv('SNMP_COMMUNITY', 'monitor')
     
     # Cấu hình Google Sheets

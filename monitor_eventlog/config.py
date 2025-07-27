@@ -45,3 +45,5 @@ class Config:
             raise ValueError(f"Thiếu các biến môi trường bắt buộc: {', '.join(missing)}")
         
         return True
+
+

@@ -5,7 +5,6 @@ from datetime import datetime
 
 class GoogleSheetsWriter:
     def __init__(self, creds_file, sheet_name):
-        """Initialize Google Sheets connection với error handling"""
         try:
             scope = [
                 "https://www.googleapis.com/auth/spreadsheets",

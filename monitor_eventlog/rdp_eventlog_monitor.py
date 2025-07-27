@@ -1,7 +1,6 @@
 """
-RDP Event Log Monitor - Chỉ sử dụng PowerShell với time filter.
-Tránh false alerts bằng cách chỉ lấy events trong khoảng thời gian gần đây.
-ĐÃ SỬA LỖI TIMESTAMP VÀ IPv6 PARSING.
+RDP Event Log Monitor - sử dụng PowerShell với time filter.
+
 """
 
 import subprocess
@@ -101,7 +100,7 @@ class RDPPowerShellMonitor:
         if not ip_str or ip_str == "Unknown":
             return "Unknown"
         
-        # Xử lý IPv6 với zone ID (ví dụ: fe80::2b3a:f25a%584877503)
+        # Xử lý IPv6 
         if '%' in ip_str:
             ip_str = ip_str.split('%')[0]  # Bỏ zone ID
         
@@ -113,7 +112,7 @@ class RDPPowerShellMonitor:
 
     def _is_event_processed(self, event_info):
         """Kiểm tra event đã được xử lý chưa."""
-        # SỬA LỖI: Sử dụng 'timestamp' thay vì truy cập trực tiếp
+ 
         timestamp = event_info.get('timestamp', 'unknown')
         user = event_info.get('user', 'unknown')
         source_ip = event_info.get('source_ip', 'unknown')
@@ -123,7 +122,7 @@ class RDPPowerShellMonitor:
 
     def _mark_event_processed(self, event_info):
         """Đánh dấu event đã được xử lý."""
-        # SỬA LỖI: Sử dụng 'timestamp' thay vì truy cập trực tiếp
+
         timestamp = event_info.get('timestamp', 'unknown')
         user = event_info.get('user', 'unknown')
         source_ip = event_info.get('source_ip', 'unknown')
@@ -137,14 +136,14 @@ class RDPPowerShellMonitor:
         }
 
     def _get_recent_rdp_events_powershell(self):
-        """Lấy RDP events gần đây qua PowerShell với timestamp parsing cải tiến."""
+        """Lấy RDP events gần đây qua PowerShell với timestamp parsing."""
         # Tính thời gian bắt đầu lọc
         time_threshold = datetime.now() - timedelta(hours=self.hours_lookback)
         time_filter = time_threshold.strftime("%Y-%m-%dT%H:%M:%S")
         
         print(f"[POWERSHELL] Tìm RDP events sau: {time_filter}")
 
-        # PowerShell script với format timestamp chuẩn
+        # PowerShell script 
         ps_script = f"""
         try {{
             $startTime = [DateTime]::Parse('{time_filter}')
@@ -244,7 +243,7 @@ class RDPPowerShellMonitor:
             return []
 
     def collect_logs(self, max_entries=20):
-        """Thu thập RDP logs chỉ qua PowerShell với error handling cải tiến."""
+        """Thu thập RDP logs chỉ qua PowerShell với error handling."""
         print("="*60)
         print("🔍 BẮT ĐẦU RDP LOG COLLECTION VIA POWERSHELL")
         print("="*60)
@@ -423,5 +422,4 @@ class RDPPowerShellMonitor:
             print(f"[LỖI] Không thể xuất CSV: {e}")
 
 
-# Alias để tương thích với code cũ
 RDPEventLogMonitor = RDPPowerShellMonitor

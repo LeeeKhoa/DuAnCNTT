@@ -4,7 +4,7 @@ from snmp_monitor import SNMPMonitor, discover_snmp_hosts
 from config import Config
 
 def monitor_single_host(ip, community=None):
-    """Giám sát một thiết bị đơn lẻ"""
+    
     if community is None:
         community = Config.SNMP_COMMUNITY
         
@@ -17,7 +17,7 @@ def monitor_single_host(ip, community=None):
             return data
         else:
             print(f"[CẢNH BÁO] Thiết bị {ip} offline hoặc không phản hồi")
-            return data  # Vẫn trả về dữ liệu offline để theo dõi
+            return data  
             
     except Exception as e:
         print(f"[LỖI] Lỗi giám sát {ip}: {e}")
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     
     start_time = time.time()
     
-    # Bước 1: Khám phá thiết bị (sử dụng cấu hình mặc định từ Config)
+    # Bước 1: Quét thiết bị (sử dụng cấu hình mặc định từ Config)
     print(f"[THÔNG TIN] Bắt đầu khám phá thiết bị SNMP trên {Config.SNMP_SUBNET}...")
     available_hosts = discover_snmp_hosts()  # Không cần truyền tham số
     print(f"[THÔNG TIN] Phát hiện {len(available_hosts)} thiết bị SNMP: {available_hosts}")
